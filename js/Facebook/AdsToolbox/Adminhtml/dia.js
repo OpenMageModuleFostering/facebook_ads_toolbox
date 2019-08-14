@@ -103,6 +103,7 @@ var DiaFlowContainer = React.createClass({
         }
         var origin = event.origin || event.originalEvent.origin;
         if ((0, _utils.urlFromSameDomain)(origin, window.facebookAdsToolboxConfig.popupOrigin)) {
+          _utils.togglePopupOriginWeb(origin);
           callback && callback(event.data);
         }
       }, false);
@@ -443,7 +444,7 @@ exports.isIE = isIE;
 exports.parseURL = parseURL;
 exports.urlFromSameDomain = urlFromSameDomain;
 exports.safeJSONParse = safeJSONParse;
-exports.togglePopupOriginBusiness = togglePopupOriginBusiness;
+exports.togglePopupOriginWeb = togglePopupOriginWeb;
 
 var _ieOverlay = require('./fb/ieOverlay.jsx');
 
@@ -512,7 +513,9 @@ function parseURL(url) {
 function urlFromSameDomain(url1, url2) {
   var u1 = parseURL(url1);
   var u2 = parseURL(url2);
-  return u1.protocol === u2.protocol && u1.host === u2.host;
+  var u1host = u1.host.replace('web.', 'www.');
+  var u2host = u2.host.replace('web.', 'www.');
+  return u1.protocol === u2.protocol && u1host === u2host;
 };
 
 function safeJSONParse(jsonstr) {
@@ -524,12 +527,12 @@ function safeJSONParse(jsonstr) {
   }
 };
 
-function togglePopupOriginBusiness(dia_origin) {
+function togglePopupOriginWeb(dia_origin) {
   var current_origin = window.facebookAdsToolboxConfig.popupOrigin;
-  if (dia_origin.includes('business') && !current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www', 'business');
-  } else if (!dia_origin.includes('business') && current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('business', 'www');
+  if (dia_origin.includes('web.') && !current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www.', 'web.');
+  } else if (!dia_origin.includes('web.') && current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('web.', 'www.');
   }
 };
 
