@@ -8,12 +8,10 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/../lib/fb.php')) {
-  include_once __DIR__.'/../lib/fb.php';
-} else {
-  include_once __DIR__.'/../../../Facebook_AdsToolbox_lib_fb.php';
-}
+require_once 'app/Mage.php';
+require_once __DIR__.'/../lib/fb.php';
 
+// DEPRECATED : Kept around for legacy reasons.
 class Facebook_AdsToolbox_ProductfeedController
   extends Mage_Core_Controller_Front_Action {
 
@@ -24,7 +22,7 @@ class Facebook_AdsToolbox_ProductfeedController
       $settings_id = Mage::getStoreConfig('facebook_ads_toolbox/dia/setting/id');
 
       list($format, $feed, $supportzip) =
-        $obins->internalGenerateFacebookProductFeed();
+        $obins->internalGenerateFacebookProductFeed(true);
       if ($supportzip) {
         $this->getResponse()->setHeader('Content-type', 'application/x-gzip');
         list($filename, $filesize, $filecontent) = $feed->readGZip();

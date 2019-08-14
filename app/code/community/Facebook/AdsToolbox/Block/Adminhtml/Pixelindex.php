@@ -8,11 +8,8 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/../../lib/fb.php')) {
-  include_once __DIR__.'/../../lib/fb.php';
-} else {
-  include_once 'Facebook_AdsToolbox_lib_fb.php';
-}
+require_once 'app/Mage.php';
+require_once __DIR__.'/../../lib/fb.php';
 
 class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
   extends Mage_Adminhtml_Block_Template {
@@ -26,7 +23,10 @@ class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
   }
 
   public function fetchStoreName() {
-    return htmlspecialchars(FacebookAdsToolbox::getStoreName(), ENT_QUOTES, 'UTF-8');
+    // In order to fetch the actual website store name not the default 'Admin'
+    // store, we have to do this. -StackOverflow
+    $defaultStoreId = Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
+    return Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
   }
 
   public function fetchTimezone() {

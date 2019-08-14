@@ -8,29 +8,10 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/FacebookProductFeed.php')) {
-  include_once 'FacebookProductFeed.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeed.php';
-}
-
-if (file_exists(__DIR__.'/FacebookProductFeedTSV.php')) {
-  include_once 'FacebookProductFeedTSV.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedTSV.php';
-}
-
-if (file_exists(__DIR__.'/FacebookProductFeedXML.php')) {
-  include_once 'FacebookProductFeedXML.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedXML.php';
-}
-
-if (file_exists(__DIR__.'/FacebookProductFeedSamples.php')) {
-  include_once 'FacebookProductFeedSamples.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedSamples.php';
-}
+require_once 'FacebookProductFeed.php';
+require_once 'FacebookProductFeedTSV.php';
+require_once 'FacebookProductFeedXML.php';
+require_once 'FacebookProductFeedSamples.php';
 
 class Facebook_AdsToolbox_Model_Observer {
 
@@ -44,7 +25,12 @@ class Facebook_AdsToolbox_Model_Observer {
   }
 
   public function estimateFeedGenerationTime() {
-    $feed = self::getFeedObject();
+    $supportzip = extension_loaded('zlib');
+    $format = Mage::getStoreConfig(
+      FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT
+    ) ?: 'TSV';
+    $feed = ($format === 'TSV') ? new FacebookProductFeedTSV() :
+                                  new FacebookProductFeedXML();
 
     // Estimate = MAX (Appx Time to Gen 500 Products + 30 , Last Runtime + 20)
     $time_estimate = $feed->estimateGenerationTime();
@@ -77,20 +63,6 @@ class Facebook_AdsToolbox_Model_Observer {
     }
   }
 
-  private static function getFeedObject() {
-    $supportzip = extension_loaded('zlib');
-    $format = Mage::getStoreConfig(
-      FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT
-    ) ?: 'TSV';
-    $feed = ($format === 'TSV') ? new FacebookProductFeedTSV() :
-                                  new FacebookProductFeedXML();
-    return $feed;
-  }
-
-  private static function checkFeedExists() {
-    return file_exists(self::getFeedObject()->getFullPath());
-  }
-
   public function internalGenerateFacebookProductFeed(
     $throwException = false,
     $checkCache = true
@@ -98,7 +70,11 @@ class Facebook_AdsToolbox_Model_Observer {
     FacebookProductFeed::log('feed generation start...');
     $time_start = time();
     $supportzip = extension_loaded('zlib');
-    $feed = self::getFeedObject();
+    $format = Mage::getStoreConfig(
+      FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT
+    ) ?: 'TSV';
+    $feed = ($format === 'TSV') ? new FacebookProductFeedTSV() :
+                                  new FacebookProductFeedXML();
     $feed_target_file_path = $feed->getTargetFilePath($supportzip);
 
     if ($checkCache) {
@@ -128,20 +104,27 @@ class Facebook_AdsToolbox_Model_Observer {
       // no_lock & stale feed, or stale_lock, we will regen the feed
     }
 
+    if (!Mage::getStoreConfigFlag(
+      FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED
+    )) {
+      FacebookProductFeed::log('feed generation not enabled.');
+      return;
+    }
+
     try {
       $this->_createFileLockForFeedPath($feed_target_file_path);
       $feed->save();
       if ($supportzip) {
         $feed->saveGZip();
       }
-    } catch (\Exception $e) {
-      FacebookProductFeed::log(sprintf(
-        'Caught exception: %s. %s', $e->getMessage(), $e->getTraceAsString()
-      ));
+    } catch (Exception $e) {
       if ($throwException) {
         throw $e;
+      } else {
+        FacebookProductFeed::log(
+          sprintf('Caught exception: %s.', $e->getMessage()));
+        return;
       }
-      return;
     }
     $this->_removeFileLockForFeedPath($feed_target_file_path);
 
@@ -180,21 +163,8 @@ class Facebook_AdsToolbox_Model_Observer {
       $observer->getEvent()->getControllerAction()->getFullActionName();
 
     // Clear cache for FB controllers.
-    if (strpos($controller_name, 'adminhtml_fb') !== false) {
+    if (strpos($controller_name, 'facebookadstoolbox') !== false) {
       Mage::app()->getCacheInstance()->cleanType('config');
     }
-  }
-
-  public static function checkFeedWriteError() {
-    try {
-      if (self::checkFeedExists()) {
-        return '';
-      }
-      $dir = FacebookProductFeed::getFeedDirectory();
-      return is_writable($dir) ? '' : $dir;
-    } catch (Exception $e) {
-      return '/media/';
-    }
-    return '';
   }
 }

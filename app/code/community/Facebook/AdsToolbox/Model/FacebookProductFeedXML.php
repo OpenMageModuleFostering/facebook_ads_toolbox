@@ -8,17 +8,9 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/../lib/fb.php')) {
-  include_once __DIR__.'/../lib/fb.php';
-} else {
-  include_once 'Facebook_AdsToolbox_lib_fb.php';
-}
-
-if (file_exists(__DIR__.'/FacebookProductFeed.php')) {
-  include_once 'FacebookProductFeed.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeed.php';
-}
+require_once 'app/Mage.php';
+require_once __DIR__.'/../lib/fb.php';
+require_once 'FacebookProductFeed.php';
 
 class FacebookProductFeedXML extends FacebookProductFeed {
 
@@ -76,8 +68,8 @@ EOD;
     }
   }
 
-  protected function buildProductEntry($product, $product_name) {
-    $items = array_values(parent::buildProductEntry($product, $product_name));
+  protected function buildProductEntry($product) {
+    $items = array_values(parent::buildProductEntry($product));
     array_unshift($items, "<entry>");
     $items[] = "</entry>";
     return implode("\n", array_filter(array_values($items)));

@@ -1,5 +1,4 @@
-<?php if ($this->getFacebookPixelID()) { ?>
- <script>
+<script>
   fbq('track', 'ViewCategory', {
     source: 'magento',
     version: "<?php echo $this->getMagentoVersion() ?>",
@@ -8,5 +7,4 @@
   , content_category: "<?php echo $this->getCategory() ?>"
   <?php } ?>
   });
- </script>
-<?php } ?>
+</script>
