@@ -9,8 +9,11 @@
  */
 
 
-require_once 'app/Mage.php';
-require_once __DIR__.'/../lib/fb.php';
+if (file_exists(__DIR__.'/../lib/fb.php')) {
+  include_once __DIR__.'/../lib/fb.php';
+} else {
+  include_once 'Facebook_AdsToolbox_lib_fb.php';
+}
 
 class FacebookProductFeed {
 
@@ -615,7 +618,9 @@ class FacebookProductFeed {
     $category = $product->getCategoryCollection()
                         ->addAttributeToSelect('name')
                         ->getFirstItem();
-    while ($category->getName() && $category->getName() != 'Default Category') {
+    while ($category->getName()
+      && $category->getName() != 'Root Catalog'
+      && $category->getName() != 'Default Category') {
       $category_string = ($category_string) ?
         $category->getName()." > ".$category_string :
         $category->getName();

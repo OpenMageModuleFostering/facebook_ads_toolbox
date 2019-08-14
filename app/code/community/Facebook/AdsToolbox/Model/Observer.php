@@ -8,10 +8,29 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-require_once 'FacebookProductFeed.php';
-require_once 'FacebookProductFeedTSV.php';
-require_once 'FacebookProductFeedXML.php';
-require_once 'FacebookProductFeedSamples.php';
+if (file_exists(__DIR__.'/FacebookProductFeed.php')) {
+  include_once 'FacebookProductFeed.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeed.php';
+}
+
+if (file_exists(__DIR__.'/FacebookProductFeedTSV.php')) {
+  include_once 'FacebookProductFeedTSV.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedTSV.php';
+}
+
+if (file_exists(__DIR__.'/FacebookProductFeedXML.php')) {
+  include_once 'FacebookProductFeedXML.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedXML.php';
+}
+
+if (file_exists(__DIR__.'/FacebookProductFeedSamples.php')) {
+  include_once 'FacebookProductFeedSamples.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeedSamples.php';
+}
 
 class Facebook_AdsToolbox_Model_Observer {
 
@@ -111,13 +130,16 @@ class Facebook_AdsToolbox_Model_Observer {
         $feed->saveGZip();
       }
     } catch (Exception $e) {
+      FacebookProductFeed::log(sprintf(
+        'Caught exception: %s. %s', $e->getMessage(), $e->getTraceAsString()
+      ));
+      if ($supportzip) {
+        $feed->saveGZip();
+      }
       if ($throwException) {
         throw $e;
-      } else {
-        FacebookProductFeed::log(
-          sprintf('Caught exception: %s.', $e->getMessage()));
-        return;
       }
+      return;
     }
     $this->_removeFileLockForFeedPath($feed_target_file_path);
 

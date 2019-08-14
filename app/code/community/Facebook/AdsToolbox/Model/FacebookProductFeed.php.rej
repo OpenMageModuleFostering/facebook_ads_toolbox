@@ -1,0 +1,37 @@
+diff a/facebook_ads_toolbox/magento_v1.x/code/Model/FacebookProductFeed.php b/facebook_ads_toolbox/magento_v1.x/code/Model/FacebookProductFeed.php	(rejected hunks)
+@@ -180,9 +180,32 @@
+     $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
+       FacebookAdsToolbox::getBaseUrl().
+       $product->getUrlPath());
+-    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
+-      FacebookAdsToolbox::getBaseUrlMedia().
+-      'catalog/product'.$product->getImage());
++
++    $image_url = null;
++    $image = $product->getImage();
++    if (!$image || $image === '' || $image === 'no_selection') {
++      $image = $product->getSmallImage();
++    }
++    if (!$image || $image === '' || $image === 'no_selection') {
++      $image = $product->getThumbnail();
++    }
++    if (!$image || $image === '' || $image === 'no_selection') {
++      $product->load('media_gallery');
++      $gal = $product->getMediaGalleryImages();
++      if ($gal) {
++        foreach ($gal as $gal_image) {
++          if ($gal_image['url'] && $gal_image['url'] !== '') {
++            $image_url = $gal_image['url'];
++            break;
++          }
++        }
++      }
++    }
++    if (!$image_url) {
++      $image_url = FacebookAdsToolbox::getBaseUrlMedia().'catalog/product'.$image;
++    }
++
++    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK, $image_url);
+ 
+     $brand = null;
+     $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'brand');

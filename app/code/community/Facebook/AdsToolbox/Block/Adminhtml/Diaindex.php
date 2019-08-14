@@ -8,10 +8,23 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-require_once 'app/Mage.php';
-require_once 'Feedindex.php';
-require_once 'Pixelindex.php';
-require_once __DIR__.'/../../lib/fb.php';
+if (file_exists(__DIR__.'/Feedindex.php')) {
+  include_once 'Feedindex.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Block_Adminhtml_Feedindex.php';
+}
+
+if (file_exists(__DIR__.'/Pixelindex.php')) {
+  include_once 'Pixelindex.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Block_Adminhtml_Pixelindex.php';
+}
+
+if (file_exists(__DIR__.'/../../lib/fb.php')) {
+  include_once __DIR__.'/../../lib/fb.php';
+} else {
+  include_once 'Facebook_AdsToolbox_lib_fb.php';
+}
 
 class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   extends Mage_Adminhtml_Block_Template {
