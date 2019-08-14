@@ -278,7 +278,18 @@ class FacebookProductFeed {
 
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
     $collection = Mage::getModel('catalog/product')->getCollection()
-      ->addStoreFilter($store_id);
+      ->addStoreFilter($store_id)
+      ->addAttributeToFilter('visibility',
+          array(
+            'neq' =>
+              Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
+          ))
+      ->addAttributeToFilter('status',
+          array(
+            'eq' =>
+              Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+          ));
+
     $total_number_of_products = $collection->getSize();
     unset($collection);
 
@@ -309,6 +320,10 @@ class FacebookProductFeed {
           $total_number_of_products));
     }
 
+    $time_limit = (int) ini_get('max_execution_time');
+    if ($time_limit !== 0 && $time_limit < 1800) {
+      set_time_limit(1800);
+    }
     while ($count < $total_number_of_products) {
       // Compute and log memory usage
       self::log(
@@ -330,6 +345,16 @@ class FacebookProductFeed {
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
         ->addStoreFilter($store_id)
+        ->addAttributeToFilter('visibility',
+            array(
+              'neq' =>
+                Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
+            ))
+        ->addAttributeToFilter('status',
+            array(
+              'eq' =>
+                Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+            ))
         ->setPageSize($batch_max)
         ->setCurPage($count / $batch_max + 1)
         ->addUrlRewrite();
@@ -337,14 +362,8 @@ class FacebookProductFeed {
       foreach ($products as $product) {
         try {
           $product->setStoreId($store_id);
-          if ($product->getVisibility() !=
-              Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
-            $product->getStatus() !=
-              Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
-
-            $e = $this->buildProductEntry($product);
-            $io->streamWrite($e."\n");
-          }
+          $e = $this->buildProductEntry($product);
+          $io->streamWrite($e."\n");
         } catch (\Exception $e) {
           $exception_count++;
           // Don't overload the logs, log the first 3 exceptions.
@@ -482,11 +501,9 @@ class FacebookProductFeed {
   }
 
   private function lowercaseIfAllCaps($string) {
-    // if contains lowercase or non-western characters, don't update string
-    if (!preg_match('/[a-z]/', $string) && !preg_match('/[^\\p{Common}\\p{Latin}]/u', $string)) {
-      $latin_string = preg_replace('/[^\\p{Latin}]/u', '', $string);
-      if ($latin_string !== '' &&
-        mb_strtoupper($latin_string, 'utf-8') === $latin_string) {
+    // if contains lowercase, don't update string
+    if (!preg_match('/[a-z]/', $string)) {
+      if (mb_strtoupper($string, 'utf-8') === $string) {
         return mb_strtolower($string, 'utf-8');
       }
     }

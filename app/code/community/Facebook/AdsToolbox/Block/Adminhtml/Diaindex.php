@@ -90,6 +90,11 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
               Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
           )
       )
+      ->addAttributeToFilter('status',
+          array(
+            'eq' =>
+              Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+          ))
       ->getSize();
   }
 
