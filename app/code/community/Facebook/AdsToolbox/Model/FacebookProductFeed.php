@@ -25,6 +25,7 @@ class FacebookProductFeed {
   const ATTR_PRICE = 'price';
   const ATTR_GOOGLE_PRODUCT_CATEGORY = 'google_product_category';
   const ATTR_SHORT_DESCRIPTION = 'short_description';
+  const ATTR_PRODUCT_TYPE = 'product_type';
 
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED =
     'facebook_adstoolbox/feed/generation/enabled';
@@ -114,7 +115,7 @@ class FacebookProductFeed {
             $attr_value = substr($attr_value, 0, 5000);
           }
           // description can't be all uppercase
-          $attr_value = $this->uppercaseFirstOnlyIfAllCaps($attr_value);
+          $attr_value = $this->lowercaseIfAllCaps($attr_value);
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
@@ -135,6 +136,16 @@ class FacebookProductFeed {
           $attr_value = strlen($attr_value) >= 1000 ?
             substr($attr_value, 0, 995).'...' :
             $attr_value;
+          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+        }
+        break;
+      case self::ATTR_PRODUCT_TYPE:
+        // product_type max size: 750
+        if ((bool)$attr_value) {
+          $attr_value = trim($this->htmlDecode($attr_value));
+          if (strlen($attr_value) > 750) {
+            $attr_value = substr($attr_value, strlen($attr_value) - 750, 750);
+          }
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
@@ -206,7 +217,7 @@ class FacebookProductFeed {
       $stock->getIsInStock() ? 'in stock' : 'out of stock');
 
     $price = Mage::getModel('directory/currency')->format(
-      $this->getUpdatedPriceForConfigurableProduct($product),
+      $this->getProductPrice($product),
       array('display'=>Zend_Currency::NO_SYMBOL),
       false);
     if ($this->conversion_needed) {
@@ -214,11 +225,20 @@ class FacebookProductFeed {
     }
     $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
       sprintf('%s %s',
-        $price,
+        $this->stripCurrencySymbol($price),
         Mage::app()->getStore()->getDefaultCurrencyCode()));
 
     $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
       $product->getShortDescription());
+
+    $items[self::ATTR_PRODUCT_TYPE] =
+      $this->buildProductAttr(self::ATTR_PRODUCT_TYPE,
+        $this->getCategoryPath($product));
+
+    $items[self::ATTR_GOOGLE_PRODUCT_CATEGORY] =
+      $this->buildProductAttr(self::ATTR_GOOGLE_PRODUCT_CATEGORY,
+        $product->getData('google_product_category'));
+
     return $items;
   }
 
@@ -405,13 +425,13 @@ class FacebookProductFeed {
     return self::fileIsStale($file_path);
   }
 
-  private function uppercaseFirstOnlyIfAllCaps($string) {
+  private function lowercaseIfAllCaps($string) {
     // if contains lowercase or non-western characters, don't update string
     if (!preg_match('/[a-z]/', $string) && !preg_match('/[^\\p{Common}\\p{Latin}]/u', $string)) {
       $latin_string = preg_replace('/[^\\p{Latin}]/u', '', $string);
       if ($latin_string !== '' &&
         mb_strtoupper($latin_string, 'utf-8') === $latin_string) {
-        return ucwords(strtolower($string));
+        return strtolower($string);
       }
     }
     return $string;
@@ -466,20 +486,99 @@ class FacebookProductFeed {
     return $image_url;
   }
 
-  private function getUpdatedPriceForConfigurableProduct($product) {
-    if ($product->getTypeId() === 'configurable') {
-      if ($product->getFinalPrice() === 0) {
-        $configurable = Mage::getModel('catalog/product_type_configurable')
-          ->setProduct($product);
-        $simpleCollection = $configurable->getUsedProductCollection()
-          ->addAttributeToSelect('price')->addFilterByRequiredOptions();
-        foreach ($simpleCollection as $simpleProduct) {
-          if ($simpleProduct->getPrice() > 0) {
-            return $simpleProduct->getPrice();
-          }
+  private function getProductPrice($product) {
+    switch ($product->getTypeId()) {
+      case 'configurable':
+        return $this->getConfigurableProductPrice($product);
+      case 'grouped':
+        return $this->getGroupedProductPrice($product);
+      case 'bundle':
+        return $this->getBundleProductPrice($product);
+      default:
+        return $product->getFinalPrice();
+    }
+  }
+
+  private function getConfigurableProductPrice($product) {
+    if ($product->getFinalPrice() === 0) {
+      $configurable = Mage::getModel('catalog/product_type_configurable')
+        ->setProduct($product);
+      $simple_collection = $configurable->getUsedProductCollection()
+        ->addAttributeToSelect('price')->addFilterByRequiredOptions();
+      foreach ($simple_collection as $simple_product) {
+        if ($simple_product->getPrice() > 0) {
+          return $simple_product->getPrice();
         }
       }
     }
     return $product->getFinalPrice();
+  }
+
+  private function getBundleProductPrice($product) {
+    $configurable = Mage::getModel('bundle/product_type')
+      ->setProduct($product);
+
+    $collection = $configurable
+      ->getSelectionsCollection(
+        $configurable->getOptionsIds($product),
+        $product)
+      ->addAttributeToSelect('price')
+      ->addFilterByRequiredOptions();
+
+    $pm = $product->getPriceModel();
+
+    $option_prices = array();
+    $required_groups = $configurable
+      ->getProductsToPurchaseByReqGroups($product);
+    foreach ($required_groups as $group) {
+      $min_price = INF;
+      $bundle_quantity = 1;
+      $selection_quantity = 1;
+      foreach ($group as $item) {
+        $item_price = $pm->getSelectionFinalTotalPrice($product, $item,
+         $bundle_quantity, $selection_quantity);
+        $min_price = min($min_price, $item_price);
+      }
+      $option_prices[] = $min_price;
+    }
+
+    return $product->getFinalPrice() + array_sum($option_prices);
+  }
+
+  private function getGroupedProductPrice($product) {
+    $assoc_products = $product->getTypeInstance(true)
+      ->getAssociatedProductCollection($product)
+      ->addAttributeToSelect('price');
+
+    $min_price = INF;
+    foreach ($assoc_products as $assoc_product) {
+      $min_price = min($min_price, $assoc_product->getPrice());
+    }
+    return $min_price;
+  }
+
+  private function stripCurrencySymbol($price) {
+    if (!isset($this->currency_strip_needed)) {
+      $this->currency_strip_needed = !preg_match('/^[0-9,.]*$/', $price);
+    }
+    if ($this->currency_strip_needed) {
+      return preg_replace('/[^0-9,.]/', '', $price);
+    } else {
+      return $price;
+    }
+  }
+
+  private function getCategoryPath($product) {
+    $category_string = "";
+    $category = $product->getCategoryCollection()
+                        ->addAttributeToSelect('name')
+                        ->getFirstItem();
+    while ($category->getName() && $category->getName() != 'Default Category') {
+      $category_string = ($category_string) ?
+        $category->getName()." > ".$category_string :
+        $category->getName();
+      $category = $category->getParentCategory();
+    }
+    return $category_string;
   }
 }

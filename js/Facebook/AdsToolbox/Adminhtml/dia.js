@@ -219,7 +219,6 @@ var DiaFlowContainer = React.createClass({
   openPopup: function openPopup() {
     if (!this.state.diaSettingId && window.facebookAdsToolboxConfig.feed.totalVisibleProducts < 10000) {
       new Ajax.Request(window.facebookAdsToolboxAjax.generateFeedNow, {
-        method: 'post',
         parameters: {useCache : true},
         onSuccess: function onSuccess() {}
       });
@@ -240,7 +239,6 @@ var DiaFlowContainer = React.createClass({
   },
   launchDiaWizard: function launchDiaWizard() {
     this.diaConfig = { 'clientSetup': window.facebookAdsToolboxConfig };
-    this.diaConfig.feedPrepared = window.facebookAdsToolboxConfig.feedPrepared;
     this.openPopup();
   },
   closeModal: function closeModal() {
