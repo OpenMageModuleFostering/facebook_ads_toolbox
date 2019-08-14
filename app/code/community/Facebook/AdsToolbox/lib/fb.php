@@ -247,6 +247,7 @@ if (!class_exists('FacebookAdsToolbox', false)) {
       "asia_manila" => 104,
       "asia_muscat" => 102,
       "asia_nicosia" => 45,
+      "asia_novosibirsk" => 120,
       "asia_omsk" => 119,
       "asia_qatar" => 112,
       "asia_riyadh" => 126,
@@ -313,7 +314,7 @@ if (!class_exists('FacebookAdsToolbox', false)) {
 
     public static function determineFbTimeZone($magentoTimezone) {
       $fb_timezone = str_replace("/", "_", strtolower($magentoTimezone));
-      return self::$fbTimezones[$fb_timezone] ?
+      return isset(self::$fbTimezones[$fb_timezone]) ?
         self::$fbTimezones[$fb_timezone] :
         self::$fbTimezones['unknown'];
     }
