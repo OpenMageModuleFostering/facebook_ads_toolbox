@@ -26,9 +26,10 @@ class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
     // In order to fetch the actual website store name not the default 'Admin'
     // store, we have to do this. -StackOverflow
     $frontendName = Mage::app()->getStore()->getFrontendName();
+    $homePageTitle = Mage::getModel('cms/page')->load('home','identifier')->getTitle();
     $defaultStoreId = Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
     $defaultStoreName = Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
-    return $frontendName . ' ; ' . $defaultStoreName;
+    return $frontendName . ' ; ' . $homePageTitle . ' ; ' . $defaultStoreName;
   }
 
 
