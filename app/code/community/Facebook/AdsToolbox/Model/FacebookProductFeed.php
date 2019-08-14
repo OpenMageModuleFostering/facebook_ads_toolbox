@@ -124,7 +124,7 @@ class FacebookProductFeed {
   }
 
   protected function htmlDecode($attr_value) {
-    return strip_tags(htmlspecialchars_decode($attr_value));
+    return strip_tags(html_entity_decode(($attr_value)));
   }
 
   public function save() {
@@ -220,7 +220,7 @@ class FacebookProductFeed {
     $time_spent = ($end_time - $start_time);
 
     // Estimated Time =
-    // 150% of Linear extrapolation of the time to generate 100 products
+    // 150% of Linear extrapolation of the time to generate 500 products
     // + 30 seconds of buffer time.
     $time_estimate =
       $time_spent * $total_number_of_products / $num_samples * 1.5 + 30;

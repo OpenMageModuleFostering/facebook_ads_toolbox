@@ -18,6 +18,8 @@ class Facebook_AdsToolbox_ProductfeedController
     try {
       $ob = Mage::getModel('Facebook_AdsToolbox/observer');
       $obins = new $ob;
+      $settings_id = Mage::getStoreConfig('facebook_ads_toolbox/dia/setting/id');
+
       list($format, $feed, $supportzip) =
         $obins->internalGenerateFacebookProductFeed(true);
       if ($supportzip) {
@@ -41,10 +43,17 @@ class Facebook_AdsToolbox_ProductfeedController
         $this->getResponse()->setBody($filecontent);
       }
     } catch (Exception $e) {
-      $this->getResponse()->setStatusCode(500);
-      $this->getResponse()->setBody(
-        sprintf('Caught exception: %s.', $e->getMessage())
-      );
+      $this->getResponse()->setHttpResponseCode(500);
+      $this->getResponse()->setHeader('Content-type', 'text');
+      if ($settings_id && $this->getRequest()->getParam('debug') === $settings_id) {
+        $this->getResponse()->setBody(
+          sprintf("Caught exception: %s.\n%s", $e->getMessage(), $e->getTraceAsString())
+        );
+      } else {
+        $this->getResponse()->setBody(
+          sprintf("There was a problem generating your feed: %s.", $e->getMessage())
+        );
+      }
     }
   }
 

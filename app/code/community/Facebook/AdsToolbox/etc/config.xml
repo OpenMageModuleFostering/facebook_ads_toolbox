@@ -2,7 +2,7 @@
 <config>
   <modules>
     <Facebook_AdsToolbox>
-      <version>2.0.1</version>
+      <version>2.0.2</version>
     </Facebook_AdsToolbox>
   </modules>
   <global>
@@ -80,16 +80,4 @@
       </updates>
     </layout>
   </adminhtml>
-  <crontab>
-    <jobs>
-      <facebookadstoolbox_feed_regenerate>
-        <schedule>
-          <cron_expr>59 00 * * *</cron_expr>
-        </schedule>
-        <run>
-          <model>Facebook_AdsToolbox/observer::generateFacebookProductFeed</model>
-        </run>
-      </facebookadstoolbox_feed_regenerate>
-    </jobs>
-  </crontab>
 </config>
