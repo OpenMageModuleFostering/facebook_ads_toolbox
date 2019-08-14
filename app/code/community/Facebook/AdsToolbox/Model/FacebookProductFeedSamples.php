@@ -43,12 +43,12 @@ class FacebookProductFeedSamples extends FacebookProductFeed {
     $this->store_url = Mage::app()
       ->getStore()
       ->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
-    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+    $this->store_id = FacebookAdsToolbox::getDefaultStoreId();
 
     $results = array();
 
     $products = Mage::getModel('catalog/product')->getCollection()
-      ->addStoreFilter($store_id)
+      ->addStoreFilter($this->store_id)
       ->addAttributeToSelect('*')
       ->addAttributeToFilter('visibility',
           array(

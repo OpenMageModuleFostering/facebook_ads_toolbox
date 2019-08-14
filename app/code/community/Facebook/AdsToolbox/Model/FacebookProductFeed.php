@@ -239,10 +239,11 @@ class FacebookProductFeed {
     if ($this->conversion_needed) {
       $price = $this->convertCurrency($price);
     }
+
     $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
       sprintf('%s %s',
         $this->stripCurrencySymbol($price),
-        Mage::app()->getStore()->getBaseCurrencyCode()));
+        Mage::app()->getStore($this->store_id)->getCurrentCurrencyCode()));
 
     $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
       $product->getShortDescription());
@@ -314,10 +315,10 @@ class FacebookProductFeed {
 
     $io->streamWrite($this->buildHeader()."\n");
 
-    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+    $this->store_id = FacebookAdsToolbox::getDefaultStoreId();
 
     $collection = Mage::getModel('catalog/product')->getCollection()
-      ->addStoreFilter($store_id);
+      ->addStoreFilter($this->store_id);
     $total_number_of_products = $collection->getSize();
     unset($collection);
 
@@ -340,7 +341,6 @@ class FacebookProductFeed {
     $this->conversion_needed = $this->isCurrencyConversionNeeded();
     $skip_count = 0;
     $exception_count = 0;
-    $store_id = FacebookAdsToolbox::getDefaultStoreId();
 
     $this->store_url = Mage::app()
       ->getStore()
@@ -374,7 +374,7 @@ class FacebookProductFeed {
 
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
-        ->addStoreFilter($store_id)
+        ->addStoreFilter($this->store_id)
         ->setPageSize($batch_max)
         ->setCurPage($count / $batch_max + 1)
         ->addUrlRewrite();
@@ -385,7 +385,7 @@ class FacebookProductFeed {
           if ($product->getVisibility() != Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
               $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED &&
               $product_name) {
-            $product->setStoreId($store_id);
+            $product->setStoreId($this->store_id);
             $e = $this->buildProductEntry($product, $product_name);
             $io->streamWrite($e."\n");
           } else {
@@ -431,6 +431,8 @@ class FacebookProductFeed {
     $io = new Varien_Io_File();
     $io->open(array('path' => self::getFeedDirectory()));
     $io->streamOpen('feed_dryrun.txt');
+
+    $this->store_id = FacebookAdsToolbox::getDefaultStoreId();
 
     $collection = Mage::getModel('catalog/product')->getCollection();
     $total_number_of_products = $collection->getSize();
@@ -595,15 +597,36 @@ class FacebookProductFeed {
   }
 
   private function getProductPrice($product) {
+    $price = 0.0;
     switch ($product->getTypeId()) {
-      case 'configurable':
-        return $this->getConfigurableProductPrice($product);
-      case 'grouped':
-        return $this->getGroupedProductPrice($product);
-      case 'bundle':
-        return $this->getBundleProductPrice($product);
-      default:
-        return $this->getFinalPrice($product);
+    case 'configurable':
+      $price = $this->getConfigurableProductPrice($product);
+      break;
+    case 'grouped':
+      $price = $this->getGroupedProductPrice($product);
+      break;
+    case 'bundle':
+      $price =  $this->getBundleProductPrice($product);
+      break;
+    default:
+      $price = $this->getFinalPrice($product);
+    }
+
+    if (!isset($this->base_currency)) {
+      $this->base_currency = Mage::app()->getStore($this->store_id)->getBaseCurrencyCode();
+    }
+    if (!isset($this->current_currency)) {
+      $this->current_currency = Mage::app()->getStore($this->store_id)->getCurrentCurrencyCode();
+    }
+
+    if ($this->base_currency === $this->current_currency) {
+      return $price;
+    } else {
+      return Mage::helper('directory')->currencyConvert(
+        $price,
+        $this->base_currency,
+        $this->current_currency
+      );
     }
   }
 
