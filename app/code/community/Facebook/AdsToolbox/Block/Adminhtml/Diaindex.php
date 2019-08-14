@@ -71,6 +71,11 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
       'adminhtml/fbstore/ajax');
   }
 
+  public function getDebugRoute() {
+    return Mage::helper('adminhtml')->getUrl(
+      'adminhtml/fbdebug/index');
+  }
+
   public function determineFbTimeZone($magentoTimezone) {
     return $this->getPixelindex()->determineFbTimeZone();
   }
@@ -151,7 +156,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   }
 
   public function getSelectedStore() {
-      return FacebookAdsToolbox::getDefaultStoreId();
+      return FacebookAdsToolbox::getDefaultStoreId(true);
   }
 
   public function checkFeedWriteError() {

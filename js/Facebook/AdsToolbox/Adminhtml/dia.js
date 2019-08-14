@@ -635,3 +635,8 @@ function togglePopupOriginWeb(dia_origin) {
 };
 
 },{"./fb/ieOverlay.jsx":3}]},{},[1]);
+
+function fbDebug(params) {
+  console.log(window.facebookAdsToolboxAjax.debug);
+  window.open(window.facebookAdsToolboxAjax.debug + (params ? '?' + params + '=1' : ''), '_blank');
+}

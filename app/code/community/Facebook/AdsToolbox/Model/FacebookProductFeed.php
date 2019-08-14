@@ -355,6 +355,7 @@ class FacebookProductFeed {
 
     if ($should_log) {
       self::log(sprintf('About to begin writing %d products',$total_number_of_products));
+      self::log(sprintf('Store id = %d ', $this->store_id));
     }
 
     $time_limit = (int) ini_get('max_execution_time');
@@ -388,11 +389,11 @@ class FacebookProductFeed {
 
       foreach ($products as $product) {
         try {
+          $product->setStoreId($this->store_id)->load($product->getId());
           $product_name = $product->getName();
           if ($product->getVisibility() != Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
               $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED &&
               $product_name) {
-            $product->setStoreId($this->store_id);
             $e = $this->buildProductEntry($product, $product_name);
             $io->streamWrite($e."\n");
           } else {

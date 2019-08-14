@@ -26,7 +26,7 @@ class Facebook_AdsToolbox_Adminhtml_FbmainController
   public function ajaxAction() {
     try {
       $msg = Mage::helper('core/url')->getCurrentUrl();
-      FacebookAdsToolbox::log("Set Settings Request : ".$msg);
+      FacebookAdsToolbox::log("Set Settings Ajax Request Received");
 
       $dia_setting_id = $this->getRequest()->getParam('diaSettingId');
       if ($dia_setting_id) {

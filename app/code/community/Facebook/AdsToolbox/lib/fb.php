@@ -105,10 +105,13 @@ if (!class_exists('FacebookAdsToolbox', false)) {
       return parse_url(self::getBaseUrl(), PHP_URL_HOST);
     }
 
-    public static function getDefaultStoreID() {
-      try {
-        $store_id = Mage::getStoreConfig('facebook_ads_toolbox/fbstore/id');
+    public static function getDefaultStoreID($validity_check = false) {
+      $store_id = Mage::getStoreConfig('facebook_ads_toolbox/fbstore/id');
+      if (!$validity_check && $store_id) {
+        return $store_id;
+      }
 
+      try {
         $valid_store_id = false;
         // Check that store_id is valid, if a store gets deleted, we should_log
         // change the store back to the default store
@@ -121,7 +124,6 @@ if (!class_exists('FacebookAdsToolbox', false)) {
               break;
             }
           }
-
           // If the store id is invalid, save the default id
           if (!$valid_store_id) {
             $store_id =
@@ -140,7 +142,9 @@ if (!class_exists('FacebookAdsToolbox', false)) {
           : Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
       } catch (Exception $e) {
         FacebookAdsToolbox::log('Failed getting store ID, returning default');
-        return Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
+        return ($store_id) ?
+          $store_id :
+          Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
       }
     }
 
