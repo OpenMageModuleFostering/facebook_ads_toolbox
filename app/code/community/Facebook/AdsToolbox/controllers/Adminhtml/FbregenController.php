@@ -8,7 +8,7 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxfeedgeneratenowController
+class Facebook_AdsToolbox_Adminhtml_FbregenController
   extends Mage_Adminhtml_Controller_Action {
 
   private function ajaxSend($response) {
@@ -22,7 +22,7 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxfeedgeneratenowController
     if (!$isAjax) {
       $this->getResponse()->setRedirect(
         Mage::helper('adminhtml')->getUrl(
-          'adminhtml/facebookadstoolbox/feed/index'));
+          'adminhtml/fbfeed/index'));
       return;
     }
 

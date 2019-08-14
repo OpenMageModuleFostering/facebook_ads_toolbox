@@ -10,11 +10,12 @@
 
 require_once __DIR__.'/../../lib/fb.php';
 
-class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxdiasettingidController
+class Facebook_AdsToolbox_Adminhtml_FbmainController
   extends Mage_Adminhtml_Controller_Action {
 
   public function indexAction() {
     $this->loadLayout();
+    $this->_setActiveMenu('facebook_ads_toolbox');
     $this->renderLayout();
   }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <layout>
-  <adminhtml_facebookadstoolboxpixel_index>
+  <adminhtml_fbpixel_index>
     <reference name="head">
       <action method="setTitle" translate="title">
         <title>Facebook Pixel</title>
@@ -23,9 +23,9 @@
              name="Facebook_AdsToolbox.PixelIndex"
              template="facebookadstoolbox/pixel_index.phtml" />
     </reference>
-  </adminhtml_facebookadstoolboxpixel_index>
+  </adminhtml_fbpixel_index>
 
-  <adminhtml_facebookadstoolboxfeed_index>
+  <adminhtml_fbfeed_index>
     <reference name="head">
       <action method="setTitle" translate="title">
         <title>Facebook Product Feed</title>
@@ -48,9 +48,9 @@
              name="Facebook_AdsToolbox.FeedIndex"
              template="facebookadstoolbox/feed_index.phtml" />
     </reference>
-  </adminhtml_facebookadstoolboxfeed_index>
+  </adminhtml_fbfeed_index>
 
-  <adminhtml_facebookadstoolboxdia_index>
+  <adminhtml_fbmain_index>
     <reference name="head">
       <action method="setTitle" translate="title">
         <title>Facebook Dynamic Ads</title>
@@ -73,6 +73,5 @@
              name="Facebook_AdsToolbox.DiaIndex"
              template="facebookadstoolbox/dia_index.phtml" />
     </reference>
-  </adminhtml_facebookadstoolboxdia_index>
-
+  </adminhtml_fbmain_index>
 </layout>

@@ -105,7 +105,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
 
   public function getDiaSettingIdAjaxRoute() {
     return Mage::helper('adminhtml')
-      ->getUrl('adminhtml/facebookadstoolboxdiasettingid/ajax');
+      ->getUrl('adminhtml/fbmain/ajax');
   }
 
   public function getFeedGenerateNowAjaxRoute() {

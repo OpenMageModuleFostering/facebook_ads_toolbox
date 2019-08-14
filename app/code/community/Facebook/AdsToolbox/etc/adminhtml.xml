@@ -5,7 +5,7 @@
       module="Facebook_AdsToolbox">
       <title>Facebook Ads Extension</title>
       <sort_order>72</sort_order>
-      <action>adminhtml/facebookadstoolboxdia/index</action>
+      <action>adminhtml/fbmain/index</action>
     </facebook_ads_toolbox>
   </menu>
   <acl>
@@ -19,7 +19,7 @@
               <pixel_setup>
                 <title>Pixel Setup</title>
                 <sort_order>1</sort_order>
-                <action>adminhtml/facebookadstoolboxpixel/index</action>
+                <action>adminhtml/fbpixel/index</action>
               </pixel_setup>
             </children>
           </facebook_ads_toolbox>

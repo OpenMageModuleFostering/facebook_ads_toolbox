@@ -8,7 +8,7 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxpixelController
+class Facebook_AdsToolbox_Adminhtml_FbpixelController
   extends Mage_Adminhtml_Controller_Action {
 
   public function indexAction() {
@@ -40,7 +40,7 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxpixelController
     } else {
       Mage::app()->getResponse()->setRedirect(
         Mage::helper('adminhtml')->getUrl(
-          'adminhtml/facebookadstoolbox/pixel/index'));
+          'adminhtml/fbpixel/index'));
     }
   }
 

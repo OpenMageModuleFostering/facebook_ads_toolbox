@@ -37,7 +37,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
 
   public function getAjaxRoute() {
     return Mage::helper("adminhtml")
-      ->getUrl("adminhtml/facebookadstoolboxpixel/ajax");
+      ->getUrl("adminhtml/fbpixel/ajax");
   }
 
   public function getDiaSettingId() {

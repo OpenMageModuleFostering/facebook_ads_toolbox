@@ -11,22 +11,18 @@
 require_once __DIR__.'/../../lib/fb.php';
 require_once __DIR__.'/../../Model/FacebookProductFeed.php';
 
-class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxfeedController
+class Facebook_AdsToolbox_Adminhtml_FbfeedlogController
   extends Mage_Adminhtml_Controller_Action {
 
-  public function indexAction() {
-    $this->loadLayout();
-    $this->renderLayout();
+  public static function endsWith($haystack, $needle) {
+    // search forward starting from end minus needle length characters
+    return $needle === "" ||
+      (($temp = strlen($haystack) - strlen($needle)) >= 0 &&
+        strpos($haystack, $needle, $temp) !== false);
   }
 
   private function ajaxSend($response) {
     $this->getResponse()->setHeader('Content-type', 'application/json');
-    $this->getResponse()->setBody(
-      Mage::helper('core')->jsonEncode($response));
-  }
-
-  private function send500($response) {
-    $this->getResponse()->setHttpResponseCode(500);
     $this->getResponse()->setBody(
       Mage::helper('core')->jsonEncode($response));
   }
@@ -36,55 +32,12 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxfeedController
     if (!$isAjax) {
       $this->getResponse()->setRedirect(
         Mage::helper('adminhtml')->getUrl(
-          'adminhtml/facebookadstoolbox/feed/index'));
-      return;
-    }
-
-    if ($this->getRequest()->isPost()) {
-      $this->doUpdateSettings($this->getRequest());
+          'adminhtml/fbfeed/index'));
       return;
     }
 
     // in default. get request will return lastrunlogs
     $this->doQuerylastrunlogs($this->getRequest());
-  }
-
-  private function doUpdateSettings($request) {
-    $enabled = $request->getPost('enabled', null);
-    $format = $request->getPost('format', null);
-
-    if ($enabled &&
-        (!is_string($enabled) ||
-         !($enabled === 'true' || $enabled === 'false'))) {
-      $this->send500(array(
-        'error' => 'param enabled can only be true/false.',
-      ));
-      return;
-    }
-
-    if ($format &&
-        (!is_string($format) || !($format === 'TSV' || $format === 'XML'))) {
-      $this->send500(array(
-        'error' => 'param format can only be "TSV"/"XML". ',
-      ));
-      return;
-    }
-
-    if ($enabled) {
-      Mage::getModel('core/config')->saveConfig(
-        FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED,
-        ($enabled === 'true'));
-    }
-
-    if ($format) {
-      Mage::getModel('core/config')->saveConfig(
-        FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT,
-        $format);
-    }
-
-    $this->ajaxSend(array(
-      'success' => true,
-    ));
   }
 
   private function doQuerylastrunlogs($request) {
@@ -108,7 +61,7 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxfeedController
       $char = fgetc($fp);
       if (PHP_EOL == $char) {
         $lines[] = $currentLine;
-        if (FacebookAdsToolbox::endsWith(
+        if (self::endsWith(
           $currentLine,
           'feed generation start...')) {
           $found = true;

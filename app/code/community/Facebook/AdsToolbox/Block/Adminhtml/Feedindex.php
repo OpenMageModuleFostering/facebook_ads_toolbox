@@ -21,17 +21,17 @@ class Facebook_AdsToolbox_Block_Adminhtml_Feedindex
 
   public function getAjaxRoute() {
     return Mage::helper('adminhtml')->getUrl(
-      'adminhtml/facebookadstoolboxfeed/ajax');
+      'adminhtml/fbfeed/ajax');
   }
 
   public function getAjaxGenerateNowRoute() {
     return Mage::helper('adminhtml')->getUrl(
-      'adminhtml/facebookadstoolboxfeedgeneratenow/ajax');
+      'adminhtml/fbregen/ajax');
   }
 
   public function getAjaxLastRunLogsRoute() {
     return Mage::helper('adminhtml')->getUrl(
-      'adminhtml/facebookadstoolboxfeedlastrunlogs/ajax');
+      'adminhtml/fbfeedlog/ajax');
   }
 
   public function fetchFeedSetupEnabled() {
