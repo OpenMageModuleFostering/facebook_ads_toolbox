@@ -1,0 +1,117 @@
+<?php
+/**
+ * Copyright (c) 2016-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the code directory.
+ */
+
+require_once 'app/Mage.php';
+require_once 'Feedindex.php';
+require_once 'Pixelindex.php';
+require_once __DIR__.'/../../lib/fb.php';
+
+class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
+  extends Mage_Adminhtml_Block_Template {
+
+  private $pixelIndex = null;
+  private $feedIndex = null;
+
+  private function getPixelindex() {
+    if ($this->pixelIndex == null) {
+      $this->pixelIndex = new Facebook_AdsToolbox_Block_Adminhtml_Pixelindex();
+    }
+    return $this->pixelIndex;
+  }
+
+  private function getFeedindex() {
+    if ($this->feedIndex == null) {
+      $this->feedIndex = new Facebook_AdsToolbox_Block_Adminhtml_Feedindex();
+    }
+    return $this->feedIndex;
+  }
+
+  public function fetchPixelId() {
+    return $this->getPixelindex()->fetchPixelId();
+  }
+
+  public function fetchStoreBaseCurrency() {
+    return $this->getPixelindex()->fetchBaseCurrency();
+  }
+
+  public function fetchStoreName() {
+    return $this->getPixelindex()->fetchStoreName();
+  }
+
+  public function fetchStoreTimezone() {
+    return $this->getPixelindex()->fetchTimezone();
+  }
+
+  public function getPixelAjaxRoute() {
+    return $this->getPixelindex()->getAjaxRoute();
+  }
+
+  public function determineFbTimeZone($magentoTimezone) {
+    return $this->getPixelindex()->determineFbTimeZone();
+  }
+
+  public function getStoreBaseUrl() {
+    return $this->getFeedindex()->getBaseUrl();
+  }
+
+  public function fetchFeedSetupEnabled() {
+    return $this->getFeedindex()->fetchFeedSetupEnabled();
+  }
+
+  public function fetchFeedSetupFormat() {
+    return $this->getFeedindex()->fetchFeedSetupFormat();
+  }
+
+  public function getTotalVisibleProducts() {
+    return Mage::getModel('catalog/product')->getCollection()
+      ->addAttributeToFilter('visibility',
+          array(
+            'neq' =>
+              Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
+          )
+      )
+      ->getSize();
+  }
+
+  public function getFeedUrl() {
+    return FacebookAdsToolbox::getFeedUrl();
+  }
+
+  public function fetchFeedSamples() {
+    $ob = Mage::getModel('Facebook_AdsToolbox/observer');
+    $obins = new $ob;
+    $productSamples = $obins->generateFacebookProductSamples();
+    return $productSamples;
+  }
+
+  public function getDiaSettingId() {
+    return Mage::getStoreConfig('facebook_ads_toolbox/dia/setting/id');
+  }
+
+  public function getDiaSettingIdAjaxRoute() {
+    return Mage::helper('adminhtml')
+      ->getUrl('adminhtml/facebookadstoolboxdiasettingid/ajax');
+  }
+
+  public function getFeedGenerateNowAjaxRoute() {
+    return $this->getFeedIndex()->getAjaxGenerateNowRoute();
+  }
+
+  public function enableFeedNOW() {
+    $feed_setup = $this->getFeedIndex()->fetchFeedSetupEnabled();
+    if (!$feed_setup) {
+      Mage::getModel('core/config')->saveConfig(
+        FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED,
+        true);
+      return true;
+    }
+    return false;
+  }
+}

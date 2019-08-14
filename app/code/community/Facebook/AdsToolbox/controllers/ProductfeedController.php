@@ -1,0 +1,73 @@
+<?php
+/**
+ * Copyright (c) 2016-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the code directory.
+ */
+
+require_once 'app/Mage.php';
+require_once __DIR__.'/../lib/fb.php';
+
+class Facebook_AdsToolbox_ProductfeedController
+  extends Mage_Core_Controller_Front_Action {
+
+  public function genAction() {
+    try {
+      $ob = Mage::getModel('Facebook_AdsToolbox/observer');
+      $obins = new $ob;
+      list($format, $feed, $supportzip) =
+        $obins->internalGenerateFacebookProductFeed(true);
+      if ($supportzip) {
+        $this->getResponse()->setHeader('Content-type', 'application/x-gzip');
+        list($filename, $filesize, $filecontent) = $feed->readGZip();
+        $this->getResponse()->setHeader('Content-Disposition',
+          'attachment; filename='.$filename);
+        $this->getResponse()->setHeader('Content-Length', $filesize);
+        $this->getResponse()->setBody($filecontent);
+      } else {
+        if ($format == 'TSV') {
+          $this->getResponse()->setHeader('Content-type',
+            'text/tab-separated-values');
+        } else if ($format == 'XML') {
+          $this->getResponse()->setHeader('Content-type', 'text/xml');
+        }
+        list($filename, $filesize, $filecontent) = $feed->read();
+        $this->getResponse()->setHeader('Content-Disposition',
+          'attachment; filename='.$filename);
+        $this->getResponse()->setHeader('Content-Length', $filesize);
+        $this->getResponse()->setBody($filecontent);
+      }
+    } catch (Exception $e) {
+      $this->getResponse()->setStatusCode(500);
+      $this->getResponse()->setBody(
+        sprintf('Caught exception: %s.', $e->getMessage())
+      );
+    }
+  }
+
+  // Prepare the feed but don't return anything.
+  public function genPingAction() {
+      $ob = Mage::getModel('Facebook_AdsToolbox/observer');
+      $obins = new $ob;
+      $time = $obins->estimateFeedGenerationTime();
+      $this->getResponse()->setHeader('Content-type','text');
+      $this->getResponse()->setBody(round($time));
+
+      // This will call the genAction method above in an async request
+      // so that we can still return a response from the ping action.
+      try {
+        $curl = new Varien_Http_Adapter_Curl();
+        $curl->setConfig(array('timeout'   => 1));
+        $feed_url = FacebookAdsToolbox::getFeedUrl();
+        $curl->write(Zend_Http_Client::GET, $feed_url, '1.0');
+        $curl->read();
+        $curl->close();
+      } catch (Exception $e) {
+        // We expect the result to time out.
+        Mage::log($e->toString(), Zend_Log::INFO, 'facebook_exceptions.log');
+      }
+  }
+}

@@ -1,0 +1,8 @@
+<script>
+  fbq('track', 'Search', {
+    source: 'magento',
+    version: "<?php echo $this->getMagentoVersion() ?>",
+    pluginVersion: "<?php echo $this->getPluginVersion() ?>",
+    query: "<?php echo $this->getSearchQuery() ?>"
+  });
+</script>

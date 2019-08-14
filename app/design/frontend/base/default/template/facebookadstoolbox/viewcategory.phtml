@@ -1,0 +1,10 @@
+<script>
+  fbq('track', 'ViewCategory', {
+    source: 'magento'
+    version: "<?php echo $this->getMagentoVersion() ?>",
+    pluginVersion: "<?php echo $this->getPluginVersion() ?>"
+ <?php if ($this->getCategory()) { ?>
+  , content_category: "<?php echo $this->getCategory() ?>"
+  <?php } ?>
+  });
+</script>
