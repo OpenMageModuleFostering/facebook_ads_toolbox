@@ -3,9 +3,11 @@ window.facebookAdsToolboxConfig = {
   hasGzipSupport: <?php echo extension_loaded('zlib') ? 'true' : 'false' ?>
  ,popupOrigin: 'https://www.facebook.com/ads/dia'
  ,feedWasDisabled: '<?php echo $this->enableFeedNOW() ?>'
+ ,feedWritePermissionError: '<?php echo $this->checkFeedWriteError() ?>'
  ,platform: 'Magento'
  ,pixel: {
     pixelId: '<?php echo $this->fetchPixelId() ?>'
+   ,advanced_matching_supported: true
   }
  ,store: {
     baseUrl: '<?php echo $this->getStoreBaseUrl() ?>'
@@ -20,8 +22,13 @@ window.facebookAdsToolboxConfig = {
  ,feed: {
     enabled: <?php echo $this->fetchFeedSetupEnabled() === 1 ? 'true' : 'false' ?>
    ,format: '<?php echo $this->fetchFeedSetupFormat() ?>'
-   ,totalVisibleProducts: <?php echo $this->getTotalVisibleProducts() ?>
+   ,totalVisibleProducts: <?php echo FacebookAdsToolbox::getTotalVisibleProducts(
+        $this->getSelectedStore()
+      )
+    ?>
  }
+ ,defaultStoreId: '<?php echo $this->getSelectedStore() ?>'
+ ,stores: '<?php echo json_encode($this->getStores()) ?>'
 <?php if ($this->getDiaSettingId() != null) { ?>
  ,diaSettingId: <?php echo $this->getDiaSettingId() ?>
 <?php } else { ?>
@@ -45,6 +52,7 @@ window.facebookAdsToolboxConfig = {
 window.facebookAdsToolboxAjax = {
   setDiaSettingId: '<?php echo $this->getDiaSettingIdAjaxRoute() ?>'
  ,setPixelId: '<?php echo $this->getPixelAjaxRoute() ?>'
+ ,setStoreId: '<?php echo $this->getStoreAjaxRoute() ?>'
  ,generateFeedNow: '<?php echo $this->getFeedGenerateNowAjaxRoute() ?>'
 };
 </script>

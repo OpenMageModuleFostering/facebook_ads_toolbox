@@ -21,16 +21,21 @@ class Facebook_AdsToolbox_Adminhtml_FbpixelController
       $response = array(
         'success' => false,
         'pixelId' => Mage::getStoreConfig('facebook_ads_toolbox/fbpixel/id'),
+        'pixelUsePii' =>
+          Mage::getStoreConfig('facebook_ads_toolbox/fbpixel/pixel_use_pii'),
       );
-
       $pixel_id = $this->getRequest()->getParam('pixelId');
+      $pixel_use_pii = $this->getRequest()->getParam('pixelUsePii');
       if ($pixel_id && $this->isPixelIdValid($pixel_id)) {
         Mage::getModel('core/config')->saveConfig(
           'facebook_ads_toolbox/fbpixel/id',
-          $pixel_id
-        );
+          $pixel_id);
+        Mage::getModel('core/config')->saveConfig(
+          'facebook_ads_toolbox/fbpixel/pixel_use_pii',
+          $pixel_use_pii === 'true'? '1' : '0');
         $response['success'] = true;
         $response['pixelId'] = $pixel_id;
+        $response['pixelUsePii'] = $pixel_use_pii;
       }
 
       $this->getResponse()->setHeader('Content-type', 'application/json');

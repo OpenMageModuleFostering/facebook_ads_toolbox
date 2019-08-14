@@ -90,6 +90,7 @@ var DiaFlowContainer = React.createClass({
   getInitialState: function getInitialState() {
     return {
       diaSettingId: window.facebookAdsToolboxConfig.diaSettingId,
+      showAdvancedOptions: false,
       showModal: false
     };
   },
@@ -103,6 +104,7 @@ var DiaFlowContainer = React.createClass({
         }
         var origin = event.origin || event.originalEvent.origin;
         if ((0, _utils.urlFromSameDomain)(origin, window.facebookAdsToolboxConfig.popupOrigin)) {
+          _utils.togglePopupOriginWeb(origin);
           callback && callback(event.data);
         }
       }, false);
@@ -152,7 +154,8 @@ var DiaFlowContainer = React.createClass({
         }
         new Ajax.Request(window.facebookAdsToolboxAjax.setPixelId, {
           parameters: {
-            pixelId: params.pixel_id
+            pixelId: params.pixel_id,
+            pixelUsePii: params.pixel_use_pii
           },
           onSuccess: function onSuccess(transport) {
             var response = transport.responseText.evalJSON();
@@ -247,6 +250,54 @@ var DiaFlowContainer = React.createClass({
   componentDidMount: function componentDidMount() {
     this.bindMessageEvents(this.onEvent);
   },
+  selectorOnChange: function selectorOnChange() {
+    var sel = document.getElementById('fbStoreSelector');
+    var new_store_id = sel.options[sel.selectedIndex].value;
+
+    // Submit a request to the controller to update the store id
+    var loc = window.location.pathname + 'store_id/' + new_store_id + '/';
+
+    // This isn't bound when ajax call returns
+    var fbWindow = this;
+    new Ajax.Request(window.facebookAdsToolboxAjax.setStoreId, {
+      parameters: {
+        storeId: new_store_id
+      },
+      onSuccess: function onSuccess(transport) {
+        var response = transport.responseText.evalJSON();
+        // Update product count in the popup
+        window.facebookAdsToolboxConfig.feed.totalVisibleProducts =
+          response.product_count;
+        window.facebookAdsToolboxConfig.defaultStoreId = new_store_id;
+
+        if (fbWindow) {
+          fbWindow.sendDiaConfigToPopup();
+          const params = {
+            storeId: new_store_id
+          }
+          fbWindow.ackToPopup('set store id', params);
+        }
+      },
+      onFailure: function onFailure(message) {
+        if (fbWindow) {
+          const failParams = {
+            exception: message.transport.responseText,
+            storeId: new_store_id
+          }
+          fbWindow.failAckToPopup('set store id', failParams);
+        }
+      }
+    });
+
+  },
+  showAdvancedOptions: function showAdvancedOptions(e) {
+    if (!this.state.showAdvancedOptions) {
+      document.getElementById('fbAdvancedOptions').show();
+    } else {
+      document.getElementById('fbAdvancedOptions').hide();
+    }
+    this.setState({showAdvancedOptions: !this.state.showAdvancedOptions});
+  },
 
 
   render: function render() {
@@ -256,6 +307,45 @@ var DiaFlowContainer = React.createClass({
       'Your Facebook Store ID: ',
       this.state.diaSettingId
     ) : '';
+
+    // Add store options
+    const options = [];
+    const stores = JSON.parse(window.facebookAdsToolboxConfig.stores);
+    const default_id = window.facebookAdsToolboxConfig.defaultStoreId
+
+    Object.keys(stores).forEach(function(key, index) {
+      var optionValues = { value: stores[key] };
+      if (default_id === stores[key]) {
+          optionValues.selected = "selected";
+      }
+      options.push(React.createElement("option", optionValues, key));
+    });
+
+    var storeSelector = React.createElement(
+      'select',
+      {id: 'fbStoreSelector', onChange: this.selectorOnChange},
+      options
+    );
+
+    var advancedOptionsText = (this.state.showAdvancedOptions ? 'Hide' : 'Show') + ' Advanced Options';
+    var advancedOptionsLink = React.createElement(
+      'a',
+      {onClick: this.showAdvancedOptions},
+      advancedOptionsText
+    );
+
+    var advancedOptions = React.createElement(
+      'div',
+      {id: 'fbAdvancedOptions', style: {display: 'none'}},
+      React.createElement(
+        'h2',
+        null,
+        'Store Synced with Facebook'
+      ),
+      storeSelector
+    );
+
+    var feedWritePermissionError = window.facebookAdsToolboxConfig.feedWritePermissionError;
     var modal = this.state.showModal ? React.createElement(_modal2.default, { onClose: this.closeModal, message: this.modalMessage }) : null;
     return React.createElement(
       'div',
@@ -278,16 +368,25 @@ var DiaFlowContainer = React.createClass({
         React.createElement(
           'center',
           null,
-          React.createElement(
+          (!feedWritePermissionError) ? React.createElement(
             'button',
             { className: 'blue', onClick: this.launchDiaWizard },
             this.state.diaSettingId ? 'Manage Settings' : 'Get Started'
           )
+          :
+          React.createElement(
+            'h2',
+            {style: {color: 'red'}},
+            'Please enable write permissions in the ',
+            feedWritePermissionError,
+            ' directory to use this extension.'
+          )
         )
-      )
+      ),
+      advancedOptionsLink,
+      advancedOptions
     );
   }
-
 });
 
 exports.default = DiaFlowContainer;
@@ -443,7 +542,7 @@ exports.isIE = isIE;
 exports.parseURL = parseURL;
 exports.urlFromSameDomain = urlFromSameDomain;
 exports.safeJSONParse = safeJSONParse;
-exports.togglePopupOriginBusiness = togglePopupOriginBusiness;
+exports.togglePopupOriginWeb = togglePopupOriginWeb;
 
 var _ieOverlay = require('./fb/ieOverlay.jsx');
 
@@ -512,7 +611,9 @@ function parseURL(url) {
 function urlFromSameDomain(url1, url2) {
   var u1 = parseURL(url1);
   var u2 = parseURL(url2);
-  return u1.protocol === u2.protocol && u1.host === u2.host;
+  var u1host = u1.host.replace('web.', 'www.');
+  var u2host = u2.host.replace('web.', 'www.');
+  return u1.protocol === u2.protocol && u1host === u2host;
 };
 
 function safeJSONParse(jsonstr) {
@@ -524,12 +625,12 @@ function safeJSONParse(jsonstr) {
   }
 };
 
-function togglePopupOriginBusiness(dia_origin) {
+function togglePopupOriginWeb(dia_origin) {
   var current_origin = window.facebookAdsToolboxConfig.popupOrigin;
-  if (dia_origin.includes('business') && !current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www', 'business');
-  } else if (!dia_origin.includes('business') && current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('business', 'www');
+  if (dia_origin.includes('web.') && !current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www.', 'web.');
+  } else if (!dia_origin.includes('web.') && current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('web.', 'www.');
   }
 };
 
