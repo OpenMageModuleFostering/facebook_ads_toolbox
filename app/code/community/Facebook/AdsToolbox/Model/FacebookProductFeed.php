@@ -272,7 +272,9 @@ class FacebookProductFeed {
 
     $io->streamWrite($this->buildHeader()."\n");
 
-    $collection = Mage::getModel('catalog/product')->getCollection();
+    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+    $collection = Mage::getModel('catalog/product')->getCollection()
+      ->addStoreFilter($store_id);
     $total_number_of_products = $collection->getSize();
     unset($collection);
 
