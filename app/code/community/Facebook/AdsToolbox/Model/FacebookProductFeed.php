@@ -34,6 +34,7 @@ class FacebookProductFeed {
     'facebook_adstoolbox/feed/generation/enabled';
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT =
     'facebook_adstoolbox/feed/generation/format';
+  const PRICE_PRECISION = 2;
 
   public static function log($info) {
     Mage::log($info, Zend_Log::INFO, FacebookAdsToolbox::FEED_LOGFILE);
@@ -176,10 +177,10 @@ class FacebookProductFeed {
     return $this->buildProductAttrText($attribute, $value);
   }
 
-  protected function buildProductEntry($product) {
+  protected function buildProductEntry($product, $product_name = null) {
     $items = array();
     $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
-    $title = $product->getName();
+    $title = $product_name ? $product_name : $product->getName();
 
     $items[self::ATTR_ID] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
     $items[self::ATTR_TITLE] = $this->buildProductAttr(self::ATTR_TITLE, $title);
@@ -202,9 +203,13 @@ class FacebookProductFeed {
     // description can't be all uppercase
     $items[self::ATTR_DESCRIPTION] = $this->lowercaseIfAllCaps($items[self::ATTR_DESCRIPTION]);
 
+    $product_link = $product->getProductUrl();
+    if (!filter_var($product_link, FILTER_VALIDATE_URL)) {
+      $product_link = $this->store_url . $product_link;
+    }
     $items[self::ATTR_LINK] = $this->buildProductAttr(
       self::ATTR_LINK,
-      $product->getProductUrl());
+      $product_link);
 
     $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(
       self::ATTR_IMAGE_LINK,
@@ -226,8 +231,9 @@ class FacebookProductFeed {
     $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
       $stock->getIsInStock() ? 'in stock' : 'out of stock');
 
-    $price = Mage::getModel('directory/currency')->format(
+    $price = Mage::getModel('directory/currency')->formatPrecision(
       $this->getProductPrice($product),
+      self::PRICE_PRECISION,
       array('display'=>Zend_Currency::NO_SYMBOL),
       false);
     if ($this->conversion_needed) {
@@ -259,7 +265,6 @@ class FacebookProductFeed {
   // Generates a map of the form : 4 => "Root > Mens > Shoes"
   private function generateCategoryNameMap() {
     $categories = Mage::getModel('catalog/category')->getCollection()
-      ->addAttributeToSelect('id')
       ->addAttributeToSelect('name')
       ->addAttributeToSelect('path')
       ->addAttributeToSelect('is_active')
@@ -310,9 +315,9 @@ class FacebookProductFeed {
     $io->streamWrite($this->buildHeader()."\n");
 
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
+
     $collection = Mage::getModel('catalog/product')->getCollection()
       ->addStoreFilter($store_id);
-
     $total_number_of_products = $collection->getSize();
     unset($collection);
 
@@ -333,8 +338,13 @@ class FacebookProductFeed {
     $this->group_separator = $symbols['group'];
     $this->decimal_separator = $symbols['decimal'];
     $this->conversion_needed = $this->isCurrencyConversionNeeded();
+    $skip_count = 0;
     $exception_count = 0;
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
+
+    $this->store_url = Mage::app()
+      ->getStore()
+      ->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
 
     if ($should_log) {
       self::log(sprintf('About to begin writing %d products',$total_number_of_products));
@@ -371,11 +381,15 @@ class FacebookProductFeed {
 
       foreach ($products as $product) {
         try {
+          $product_name = $product->getName();
           if ($product->getVisibility() != Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
-              $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
+              $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED &&
+              $product_name) {
             $product->setStoreId($store_id);
-            $e = $this->buildProductEntry($product);
+            $e = $this->buildProductEntry($product, $product_name);
             $io->streamWrite($e."\n");
+          } else {
+            $skip_count++;
           }
         } catch (\Exception $e) {
           $exception_count++;
@@ -393,9 +407,17 @@ class FacebookProductFeed {
       $count += $batch_max;
     }
 
+    if ($skip_count != 0) {
+      self::log(sprintf('skipped %d products', $skip_count));
+    }
+
     if ($exception_count != 0) {
       self::log("Exceptions in Feed Generation : ".$exception_count);
     }
+  }
+
+  public static function getFeedDirectory() {
+    return Mage::getBaseDir(Mage_Core_Model_Store::URL_TYPE_MEDIA).'/';
   }
 
   public function estimateGenerationTime() {
@@ -407,8 +429,7 @@ class FacebookProductFeed {
     }
 
     $io = new Varien_Io_File();
-    $feed_file_path = Mage::getBaseDir(Mage_Core_Model_Store::URL_TYPE_MEDIA).'/';
-    $io->open(array('path' => $feed_file_path));
+    $io->open(array('path' => self::getFeedDirectory()));
     $io->streamOpen('feed_dryrun.txt');
 
     $collection = Mage::getModel('catalog/product')->getCollection();
@@ -490,7 +511,7 @@ class FacebookProductFeed {
   }
 
   public static function fileIsStale($file_path) {
-    $time_file_modified = filemtime($file_path);
+    $time_file_modified = (file_exists($file_path)) ? filemtime($file_path) : 0;
 
     // if we get no file modified time, or the modified time is 8hours ago,
     // we count it as stale
@@ -535,7 +556,7 @@ class FacebookProductFeed {
     return null;
   }
 
-  private function isCurrencyConversionNeeded() {
+  public function isCurrencyConversionNeeded() {
     if ($this->group_separator !== ',' && $this->group_separator !== '.') {
       return true;
     } else if ($this->decimal_separator !== ',' &&
@@ -602,35 +623,7 @@ class FacebookProductFeed {
   }
 
   private function getBundleProductPrice($product) {
-    $configurable = Mage::getModel('bundle/product_type')
-      ->setProduct($product);
-
-    $collection = $configurable
-      ->getSelectionsCollection(
-        $configurable->getOptionsIds($product),
-        $product)
-      ->addAttributeToSelect('price')
-      ->addFilterByRequiredOptions();
-
-    $pm = $product->getPriceModel();
-
-    $option_prices = array();
-    $required_groups = $configurable
-      ->getProductsToPurchaseByReqGroups($product);
-    foreach ($required_groups as $group) {
-      $min_price = INF;
-      $bundle_quantity = 1;
-      $selection_quantity = 1;
-      foreach ($group as $item) {
-        $item_price = $pm->getSelectionFinalTotalPrice($product, $item,
-         $bundle_quantity, $selection_quantity);
-        $item_price = $this->getFinalPrice($item, $item_price);
-        $min_price = min($min_price, $item_price);
-      }
-      $option_prices[] = $min_price;
-    }
-
-    return $this->getFinalPrice($product) + array_sum($option_prices);
+    return $product->getPriceModel()->getTotalPrices($product, 'min', 0, 1);
   }
 
   private function getGroupedProductPrice($product) {
@@ -653,6 +646,9 @@ class FacebookProductFeed {
     }
     if ($price === null) {
       $price = $product->getFinalPrice();
+    }
+    if ($price === null) {
+      $price = $product->getData('special_price');
     }
     return $this->taxHelper->getPrice($product, $price);
   }

@@ -257,6 +257,7 @@ var DiaFlowContainer = React.createClass({
       'Your Facebook Store ID: ',
       this.state.diaSettingId
     ) : '';
+    var feedWritePermissionError = window.facebookAdsToolboxConfig.feedWritePermissionError;
     var modal = this.state.showModal ? React.createElement(_modal2.default, { onClose: this.closeModal, message: this.modalMessage }) : null;
     return React.createElement(
       'div',
@@ -279,10 +280,18 @@ var DiaFlowContainer = React.createClass({
         React.createElement(
           'center',
           null,
-          React.createElement(
+          (!feedWritePermissionError) ? React.createElement(
             'button',
             { className: 'blue', onClick: this.launchDiaWizard },
             this.state.diaSettingId ? 'Manage Settings' : 'Get Started'
+          )
+          :
+          React.createElement(
+            'h2',
+            {style: {color: 'red'}},
+            'Please enable write permissions in the ',
+            feedWritePermissionError,
+            ' directory to use this extension.'
           )
         )
       )

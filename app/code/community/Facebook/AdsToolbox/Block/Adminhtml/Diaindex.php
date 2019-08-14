@@ -148,4 +148,8 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
     }
     return implode('; ', $simple_module_list);
   }
+
+  public function checkFeedWriteError() {
+    return Mage::getModel('Facebook_AdsToolbox/observer')->checkFeedWriteError();
+  }
 }

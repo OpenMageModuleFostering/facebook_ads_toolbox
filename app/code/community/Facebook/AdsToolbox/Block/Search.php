@@ -18,7 +18,9 @@ class Facebook_AdsToolbox_Block_Search
   extends Facebook_AdsToolbox_Block_Common {
 
   public function getSearchQuery() {
-    return $this->escapeQuotes(
-      $this->getRequest()->getParam('q'));
+    return htmlspecialchars(
+      $this->getRequest()->getParam('q'),
+      ENT_QUOTES,
+      'UTF-8');
   }
 }

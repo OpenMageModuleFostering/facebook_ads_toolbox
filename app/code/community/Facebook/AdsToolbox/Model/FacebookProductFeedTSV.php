@@ -55,8 +55,8 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
     return null;
   }
 
-  protected function buildProductEntry($product) {
-    $items = parent::buildProductEntry($product);
+  protected function buildProductEntry($product, $product_name) {
+    $items = parent::buildProductEntry($product, $product_name);
     return implode("\t", array_values($items));
   }
 

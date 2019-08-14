@@ -3,6 +3,7 @@ window.facebookAdsToolboxConfig = {
   hasGzipSupport: <?php echo extension_loaded('zlib') ? 'true' : 'false' ?>
  ,popupOrigin: 'https://www.facebook.com/ads/dia'
  ,feedWasDisabled: '<?php echo $this->enableFeedNOW() ?>'
+ ,feedWritePermissionError: '<?php echo $this->checkFeedWriteError() ?>'
  ,platform: 'Magento'
  ,pixel: {
     pixelId: '<?php echo $this->fetchPixelId() ?>'

@@ -87,11 +87,22 @@ if (!class_exists('FacebookAdsToolbox', false)) {
         return $frontendName;
       }
       $defaultStoreId = self::getDefaultStoreID();
-      $defaultStoreName = Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
-      if ($defaultStoreName !== 'Main Website Store' && $defaultStoreName !== 'Main Store') {
+      $defaultStoreName = Mage::getModel('core/store')
+        ->load($defaultStoreId)->getGroup()->getName();
+      $escapeStrings = array("\r", "\n", "&nbsp;", "\t");
+      $defaultStoreName =
+        trim(str_replace($escapeStrings, ' ', $defaultStoreName));
+      if (!$defaultStoreName) {
+        $defaultStoreName = Mage::app()->getWebsite(true)->getName();
+        $defaultStoreName =
+          trim(str_replace($escapeStrings, ' ', $defaultStoreName));
+      }
+      if ($defaultStoreName && $defaultStoreName !== 'Main Website Store'
+        && $defaultStoreName !== 'Main Store'
+        && $defaultStoreName !== 'Main Website') {
         return $defaultStoreName;
       }
-      return 'Original';
+      return parse_url(self::getBaseUrl(), PHP_URL_HOST);
     }
 
     public static function getDefaultStoreID() {
