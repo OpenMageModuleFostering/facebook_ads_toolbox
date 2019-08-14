@@ -256,6 +256,36 @@ class FacebookProductFeed {
     return strip_tags(html_entity_decode(($attr_value)));
   }
 
+  // Generates a map of the form : 4 => "Root > Mens > Shoes"
+  private function generateCategoryNameMap() {
+    $categories = Mage::getModel('catalog/category')->getCollection()
+      ->addAttributeToSelect('id')
+      ->addAttributeToSelect('name')
+      ->addAttributeToSelect('path')
+      ->addAttributeToSelect('is_active')
+      ->addAttributeToFilter('is_active', 1);
+    $name = array();
+    $breadcrumb = array();
+    foreach ($categories as $category)
+    {
+      $entity_id = $category->getId();
+      $name[$entity_id] = $category->getName();
+      $breadcrumb[$entity_id] = $category->getPath();
+    }
+    // Converts the product category paths to human readable form.
+    // e.g.  "1/2/3" => "Root > Mens > Shoes"
+    foreach ($name as $id => $value)
+    {
+        $breadcrumb[$id] = implode(" > ", array_filter(array_map(
+            function ($inner_id) use (&$name) {
+              return isset($name[$inner_id]) ? $name[$inner_id] : null;
+            },
+            explode("/", $breadcrumb[$id])
+        )));
+    }
+    return $breadcrumb;
+  }
+
   public function save() {
     $io = new Varien_Io_File();
     $feed_file_path =
@@ -271,6 +301,9 @@ class FacebookProductFeed {
         $feed_file_path));
     }
 
+    self::log('Generating Categories');
+    $this->categoryNameMap = $this->generateCategoryNameMap();
+
     $io->streamOpen($this->getFileName());
     self::log('going to generate file:'.$this->getFileName());
 
@@ -278,17 +311,7 @@ class FacebookProductFeed {
 
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
     $collection = Mage::getModel('catalog/product')->getCollection()
-      ->addStoreFilter($store_id)
-      ->addAttributeToFilter('visibility',
-          array(
-            'neq' =>
-              Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
-          ))
-      ->addAttributeToFilter('status',
-          array(
-            'eq' =>
-              Mage_Catalog_Model_Product_Status::STATUS_ENABLED
-          ));
+      ->addStoreFilter($store_id);
 
     $total_number_of_products = $collection->getSize();
     unset($collection);
@@ -314,10 +337,7 @@ class FacebookProductFeed {
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
 
     if ($should_log) {
-      self::log(
-        sprintf(
-          'About to begin writing %d products',
-          $total_number_of_products));
+      self::log(sprintf('About to begin writing %d products',$total_number_of_products));
     }
 
     $time_limit = (int) ini_get('max_execution_time');
@@ -345,25 +365,18 @@ class FacebookProductFeed {
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
         ->addStoreFilter($store_id)
-        ->addAttributeToFilter('visibility',
-            array(
-              'neq' =>
-                Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
-            ))
-        ->addAttributeToFilter('status',
-            array(
-              'eq' =>
-                Mage_Catalog_Model_Product_Status::STATUS_ENABLED
-            ))
         ->setPageSize($batch_max)
         ->setCurPage($count / $batch_max + 1)
         ->addUrlRewrite();
 
       foreach ($products as $product) {
         try {
-          $product->setStoreId($store_id);
-          $e = $this->buildProductEntry($product);
-          $io->streamWrite($e."\n");
+          if ($product->getVisibility() != Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
+              $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
+            $product->setStoreId($store_id);
+            $e = $this->buildProductEntry($product);
+            $io->streamWrite($e."\n");
+          }
         } catch (\Exception $e) {
           $exception_count++;
           // Don't overload the logs, log the first 3 exceptions.
@@ -401,6 +414,7 @@ class FacebookProductFeed {
     $collection = Mage::getModel('catalog/product')->getCollection();
     $total_number_of_products = $collection->getSize();
     unset($collection);
+    $this->categoryNameMap = array();
 
     $num_samples =
       ($total_number_of_products <= 500) ? $total_number_of_products : 500;
@@ -655,18 +669,13 @@ class FacebookProductFeed {
   }
 
   private function getCategoryPath($product) {
-    $category_string = "";
-    $category = $product->getCategoryCollection()
-                        ->addAttributeToSelect('name')
-                        ->getFirstItem();
-    while ($category->getName()
-      && $category->getName() != 'Root Catalog'
-      && $category->getName() != 'Default Category') {
-      $category_string = ($category_string) ?
-        $category->getName()." > ".$category_string :
-        $category->getName();
-      $category = $category->getParentCategory();
+    $category_names = array();
+    $category_ids = $product->getCategoryIds();
+    foreach ($category_ids as $category_id) {
+      if (array_key_exists($category_id, $this->categoryNameMap)) {
+        $category_names[] = $this->categoryNameMap[$category_id];
+      }
     }
-    return $category_string;
+    return implode(" | ", $category_names);
   }
 }

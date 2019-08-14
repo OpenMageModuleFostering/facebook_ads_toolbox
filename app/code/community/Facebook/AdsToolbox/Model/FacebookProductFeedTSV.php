@@ -29,20 +29,6 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
 // ref: https://developers.facebook.com/docs/marketing-api/dynamic-product-ads/product-catalog
   const TSV_HEADER = "id\ttitle\tdescription\tlink\timage_link\tbrand\tcondition\tavailability\tprice\tshort_description\tproduct_type\tgoogle_product_category";
 
-  function __construct() {
-    $this->quote_chars = array(
-      chr(145),
-      chr(146),
-      chr(147),
-      chr(148),
-      "\xe2\x80\x98",
-      "\xe2\x80\x99",
-      "\xe2\x80\x9c",
-      "\xe2\x80\x9d",
-    );
-    $this->replacement_chars = array("'", "'", '"', '"', "'", "'", '"', '"');
-  }
-
   protected function tsvescape($t) {
     // replace newlines as TSV does not allow multi-line value
     return str_replace(array("\r", "\n", "&nbsp;", "\t"), ' ', $t);
@@ -71,11 +57,7 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
 
   protected function buildProductEntry($product) {
     $items = parent::buildProductEntry($product);
-    $imploded_str = implode("\t", array_values($items));
-    return str_replace(
-      $this->quote_chars,
-      $this->replacement_chars,
-      $imploded_str);
+    return implode("\t", array_values($items));
   }
 
 }

@@ -133,9 +133,6 @@ class Facebook_AdsToolbox_Model_Observer {
       FacebookProductFeed::log(sprintf(
         'Caught exception: %s. %s', $e->getMessage(), $e->getTraceAsString()
       ));
-      if ($supportzip) {
-        $feed->saveGZip();
-      }
       if ($throwException) {
         throw $e;
       }

@@ -84,6 +84,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
 
   public function getTotalVisibleProducts() {
     return Mage::getModel('catalog/product')->getCollection()
+      ->addStoreFilter(FacebookAdsToolbox::getDefaultStoreId())
       ->addAttributeToFilter('visibility',
           array(
             'neq' =>
