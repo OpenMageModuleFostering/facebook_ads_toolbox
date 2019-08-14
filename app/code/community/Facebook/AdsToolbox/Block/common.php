@@ -11,7 +11,7 @@
 require_once 'app/Mage.php';
 require_once __DIR__.'/../lib/fb.php';
 
-trait FacebookAdsToolboxBlockCommon {
+class Facebook_AdsToolbox_Block_Common extends Mage_Core_Block_Template {
 
   public function getContentType() {
     return 'product';

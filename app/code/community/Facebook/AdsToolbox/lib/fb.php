@@ -36,15 +36,6 @@ class FacebookAdsToolbox {
     return Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA, self::maybeUseHTTPS());
   }
 
-  public static function getFeedUrl() {
-    $supportzip = extension_loaded('zlib');
-    if ($supportzip) {
-      return self::getBaseURLMedia().'facebook_adstoolbox_product_feed.tsv.gz';
-    } else {
-      return self::getBaseURLMedia().'facebook_adstoolbox_product_feed.tsv';
-    }
-  }
-
   public static function getFeedGenUrl() {
     return
       FacebookAdsToolbox::getBaseUrl().'facebookadstoolbox/productfeed/gen';

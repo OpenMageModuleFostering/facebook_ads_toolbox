@@ -52,6 +52,14 @@ class FacebookProductFeed {
            );
   }
 
+  protected function defaultBrand() {
+    return $this->buildProductAttr(self::ATTR_BRAND, 'original');
+  }
+
+  protected function defaultCondition() {
+    return $this->buildProductAttr(self::ATTR_CONDITION, 'new');
+  }
+
   protected function buildProductAttrText(
     $attr_name,
     $attr_value,
@@ -154,12 +162,18 @@ class FacebookProductFeed {
 
     // 'Description' is required by default but can be made
     // optional through the magento admin panel.
-    $description = $product->getDescription();
-    $short_desc = $product->getShortDescription();
-    $items[self::ATTR_DESCRIPTION] = $this->buildProductAttr(
+    // Try using the short description and title if it doesn't exist.
+    $description = $this->buildProductAttr(
       self::ATTR_DESCRIPTION,
-      ($description) ? $description : (($short_desc) ? $short_desc : $title)
+      $product->getDescription()
     );
+    if (!$description) {
+      $description = $this->buildProductAttr(
+        self::ATTR_DESCRIPTION,
+        $product->getShortDescription()
+      );
+    }
+    $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
 
     $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
       FacebookAdsToolbox::getBaseUrl().
@@ -175,13 +189,13 @@ class FacebookProductFeed {
     if (!$brand && $product->getData('manufacturer')) {
       $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('manufacturer'));
     }
-    $items[self::ATTR_BRAND] = ($brand) ? $brand : 'original';
+    $items[self::ATTR_BRAND] = ($brand) ? $brand : $this->defaultBrand();
 
     $condition = null;
     if ($product->getData('condition')) {
       $condition = $this->buildProductAttr(self::ATTR_CONDITION, $product->getAttributeText('condition'));
     }
-    $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : 'new';
+    $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : $this->defaultCondition();
 
     $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
       $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');

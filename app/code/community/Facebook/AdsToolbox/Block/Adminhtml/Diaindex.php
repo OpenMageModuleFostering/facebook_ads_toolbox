@@ -81,7 +81,15 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   }
 
   public function getFeedUrl() {
-    return FacebookAdsToolbox::getFeedUrl();
+    $feed_url = sprintf('%sfacebook_adstoolbox_product_feed.%s',
+      $this->getStoreBaseUrl(),
+      strtolower($this->fetchFeedSetupFormat())
+    );
+    if (extension_loaded('zlib')) {
+      return $feed_url.'.gz';
+    } else {
+      return $feed_url;
+    }
   }
 
   public function fetchFeedSamples() {

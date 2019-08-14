@@ -16,7 +16,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Feedindex
   extends Mage_Adminhtml_Block_Template {
 
   public function getBaseUrl() {
-    return FacebookAdsToolbox::getBaseUrl();
+    return FacebookAdsToolbox::getBaseUrlMedia();
   }
 
   public function getAjaxRoute() {
@@ -35,11 +35,12 @@ class Facebook_AdsToolbox_Block_Adminhtml_Feedindex
   }
 
   public function fetchFeedSetupEnabled() {
-    return FacebookProductFeed::getCurrentSetup()['enabled'];
+    $setup = FacebookProductFeed::getCurrentSetup();
+    return $setup['enabled'];
   }
 
   public function fetchFeedSetupFormat() {
-    return FacebookProductFeed::getCurrentSetup()['format'];
+    $setup = FacebookProductFeed::getCurrentSetup();
+    return $setup['format'];
   }
-
 }

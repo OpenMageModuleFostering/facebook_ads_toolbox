@@ -11,9 +11,7 @@
 require_once 'app/Mage.php';
 require_once 'common.php';
 
-class Facebook_AdsToolbox_Block_Head extends Mage_Core_Block_Template {
-
-  use FacebookAdsToolboxBlockCommon;
+class Facebook_AdsToolbox_Block_Head extends Facebook_AdsToolbox_Block_Common {
 
   public function getFacebookPixelID() {
     return Mage::getStoreConfig('facebook_ads_toolbox/fbpixel/id');

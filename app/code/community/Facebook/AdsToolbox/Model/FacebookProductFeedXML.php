@@ -37,6 +37,7 @@ EOD;
 </feed>
 EOD;
 
+
   protected function getFileName() {
     return self::XML_FEED_FILENAME;
   }

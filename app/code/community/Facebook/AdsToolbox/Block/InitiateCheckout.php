@@ -12,9 +12,7 @@ require_once 'app/Mage.php';
 require_once 'common.php';
 
 class Facebook_AdsToolbox_Block_InitiateCheckout
-  extends Mage_Core_Block_Template {
-
-  use FacebookAdsToolboxBlockCommon;
+  extends Facebook_AdsToolbox_Block_Common {
 
   public function getContentIDs() {
     $products = array();
