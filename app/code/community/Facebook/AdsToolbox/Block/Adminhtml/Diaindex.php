@@ -82,7 +82,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
 
   public function getFeedUrl() {
     $feed_url = sprintf('%sfacebook_adstoolbox_product_feed.%s',
-      $this->getStoreBaseUrl(),
+      $this->getFeedIndex()->getBaseUrl(),
       strtolower($this->fetchFeedSetupFormat())
     );
     if (extension_loaded('zlib')) {
