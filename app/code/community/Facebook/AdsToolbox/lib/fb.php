@@ -82,12 +82,16 @@ class FacebookAdsToolbox {
     if ($frontendName !== 'Default') {
       return $frontendName;
     }
-    $defaultStoreId = Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
+    $defaultStoreId = self::getDefaultStoreID();
     $defaultStoreName = Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
     if ($defaultStoreName !== 'Main Website Store' && $defaultStoreName !== 'Main Store') {
       return $defaultStoreName;
     }
     return 'Original';
+  }
+
+  public static function getDefaultStoreID() {
+    return Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
   }
 
   public static $fbTimezones =  array(

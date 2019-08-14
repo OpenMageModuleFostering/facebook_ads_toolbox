@@ -58,7 +58,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   }
 
   public function getStoreBaseUrl() {
-    return $this->getFeedindex()->getBaseUrl();
+    return FacebookAdsToolbox::getBaseUrl();
   }
 
   public function fetchFeedSetupEnabled() {

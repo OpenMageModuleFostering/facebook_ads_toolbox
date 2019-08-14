@@ -181,9 +181,9 @@ class FacebookProductFeed {
     }
     $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
 
-    $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
-      FacebookAdsToolbox::getBaseUrl().
-      $product->getUrlPath());
+    $items[self::ATTR_LINK] = $this->buildProductAttr(
+      self::ATTR_LINK,
+      $product->getProductUrl());
 
     $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(
       self::ATTR_IMAGE_LINK,
@@ -280,9 +280,12 @@ class FacebookProductFeed {
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
         ->setPageSize($batch_max)
-        ->setCurPage($count / $batch_max + 1);
+        ->setCurPage($count / $batch_max + 1)
+        ->addUrlRewrite();
 
+      $store_id = FacebookAdsToolbox::getDefaultStoreId();
       foreach ($products as $product) {
+        $product->setStoreId($store_id);
         if ($product->getVisibility() !=
               Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
             $product->getStatus() !=
