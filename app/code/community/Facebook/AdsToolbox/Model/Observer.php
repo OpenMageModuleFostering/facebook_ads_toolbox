@@ -104,13 +104,6 @@ class Facebook_AdsToolbox_Model_Observer {
       // no_lock & stale feed, or stale_lock, we will regen the feed
     }
 
-    if (!Mage::getStoreConfigFlag(
-      FacebookProductFeed::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED
-    )) {
-      FacebookProductFeed::log('feed generation not enabled.');
-      return;
-    }
-
     try {
       $this->_createFileLockForFeedPath($feed_target_file_path);
       $feed->save();
@@ -163,7 +156,7 @@ class Facebook_AdsToolbox_Model_Observer {
       $observer->getEvent()->getControllerAction()->getFullActionName();
 
     // Clear cache for FB controllers.
-    if (strpos($controller_name, 'facebookadstoolbox') !== false) {
+    if (strpos($controller_name, 'adminhtml_fb') !== false) {
       Mage::app()->getCacheInstance()->cleanType('config');
     }
   }

@@ -14,6 +14,7 @@ class FacebookAdsToolbox {
 
   const LOGFILE = 'facebook_ads_extension.log';
   const FEED_LOGFILE = 'facebook_adstoolbox_product_feed.log';
+  const FEED_EXCEPTION = 'facebook_product_feed_exception.log';
 
   public static function version() {
     return Mage::getConfig()->getModuleConfig("Facebook_AdsToolbox")->version;
@@ -61,6 +62,11 @@ class FacebookAdsToolbox {
     return file_get_contents($log_file_path);
   }
 
+  public static function getFeedException() {
+    $log_file_path = Mage::getBaseDir('log').'/'.self::FEED_EXCEPTION;
+    return file_get_contents($log_file_path);
+  }
+
   public static function log($msg) {
      Mage::log($msg, Zend_Log::INFO, self::LOGFILE);
   }
@@ -75,6 +81,23 @@ class FacebookAdsToolbox {
       );
     }
     return $debug_key;
+  }
+
+  public static function getStoreName() {
+    $frontendName = Mage::app()->getStore()->getFrontendName();
+    if ($frontendName !== 'Default') {
+      return $frontendName;
+    }
+    $defaultStoreId = self::getDefaultStoreID();
+    $defaultStoreName = Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
+    if ($defaultStoreName !== 'Main Website Store' && $defaultStoreName !== 'Main Store') {
+      return $defaultStoreName;
+    }
+    return 'Original';
+  }
+
+  public static function getDefaultStoreID() {
+    return Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
   }
 
   public static $fbTimezones =  array(

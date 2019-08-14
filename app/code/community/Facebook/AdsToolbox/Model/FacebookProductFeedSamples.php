@@ -16,6 +16,7 @@ class FacebookProductFeedSamples extends FacebookProductFeed {
 
   public function generate() {
     $MAX = 12;
+    $this->conversion_needed = false;
 
     $results = array();
 

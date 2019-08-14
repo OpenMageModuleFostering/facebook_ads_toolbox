@@ -19,7 +19,7 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
 // full row should be
 // id\ttitle\tdescription\tgoogle_product_category\tproduct_type\tlink\timage_link\tbrand\tcondition\tavailability\tprice\tsale_price\tsale_price_effective_date\tgtin\tbrand\tmpn\titem_group_id\tgender\tage_group\tcolor\tsize\tshipping\tshipping_weight\tcustom_label_0
 // ref: https://developers.facebook.com/docs/marketing-api/dynamic-product-ads/product-catalog
-  const TSV_HEADER = "id\ttitle\tdescription\tlink\timage_link\tbrand\tcondition\tavailability\tprice\tshort_description";
+  const TSV_HEADER = "id\ttitle\tdescription\tlink\timage_link\tbrand\tcondition\tavailability\tprice\tshort_description\tproduct_type\tgoogle_product_category";
 
   protected function tsvescape($t) {
     // replace newlines as TSV does not allow multi-line value
@@ -28,10 +28,6 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
 
   protected function buildProductAttr($attr_name, $attr_value) {
     return $this->buildProductAttrText($attr_name, $attr_value, 'tsvescape');
-  }
-
-  protected function defaultBrand() {
-    return 'original';
   }
 
   protected function defaultCondition() {

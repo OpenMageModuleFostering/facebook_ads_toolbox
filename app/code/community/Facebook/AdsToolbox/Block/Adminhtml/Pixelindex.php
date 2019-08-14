@@ -23,10 +23,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
   }
 
   public function fetchStoreName() {
-    // In order to fetch the actual website store name not the default 'Admin'
-    // store, we have to do this. -StackOverflow
-    $defaultStoreId = Mage::app()->getWebsite(true)->getDefaultGroup()->getDefaultStoreId();
-    return Mage::getModel('core/store')->load($defaultStoreId)->getGroup()->getName();
+    FacebookAdsToolbox::getStoreName();
   }
 
   public function fetchTimezone() {

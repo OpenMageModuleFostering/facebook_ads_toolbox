@@ -22,7 +22,9 @@ class Facebook_AdsToolbox_DebugController
     if ($debug_key && $debug_key === FacebookAdsToolbox::getDebugKey()) {
       $this->getResponse()->setHeader('Content-type', 'text');
       $feed = $this->getRequest()->getParam('feed');
-      if ($feed) {
+      if ($feed && $feed == 'exception') {
+        $this->getResponse()->setBody(FacebookAdsToolbox::getFeedException());
+      } else if ($feed) {
         $this->getResponse()->setBody(FacebookAdsToolbox::getFeedLogs());
       } else {
         $this->getResponse()->setBody(FacebookAdsToolbox::getLogs());

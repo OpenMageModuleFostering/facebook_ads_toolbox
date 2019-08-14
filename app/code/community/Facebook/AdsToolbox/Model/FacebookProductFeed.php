@@ -25,6 +25,7 @@ class FacebookProductFeed {
   const ATTR_PRICE = 'price';
   const ATTR_GOOGLE_PRODUCT_CATEGORY = 'google_product_category';
   const ATTR_SHORT_DESCRIPTION = 'short_description';
+  const ATTR_PRODUCT_TYPE = 'product_type';
 
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED =
     'facebook_adstoolbox/feed/generation/enabled';
@@ -33,6 +34,12 @@ class FacebookProductFeed {
 
   public static function log($info) {
     Mage::log($info, Zend_Log::INFO, FacebookAdsToolbox::FEED_LOGFILE);
+  }
+
+  public static function logException($e) {
+    Mage::log($e->getMessage(), Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
+    Mage::log($e->getTraceAsString(), Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
+    Mage::log($e, Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
   }
 
   public static function getCurrentSetup() {
@@ -53,7 +60,11 @@ class FacebookProductFeed {
   }
 
   protected function defaultBrand() {
-    return $this->buildProductAttr(self::ATTR_BRAND, 'original');
+    if (!isset($this->defaultBrand)) {
+      $this->defaultBrand =
+        $this->buildProductAttr(self::ATTR_BRAND, FacebookAdsToolbox::getStoreName());
+    }
+    return $this->defaultBrand;
   }
 
   protected function defaultCondition() {
@@ -132,6 +143,16 @@ class FacebookProductFeed {
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
+      case self::ATTR_PRODUCT_TYPE:
+        // product_type max size: 750
+        if ((bool)$attr_value) {
+          $attr_value = trim($this->htmlDecode($attr_value));
+          if (strlen($attr_value) > 750) {
+            $attr_value = substr($attr_value, strlen($attr_value) - 750, 750);
+          }
+          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+        }
+        break;
     }
     return '';
   }
@@ -173,21 +194,23 @@ class FacebookProductFeed {
         $product->getShortDescription()
       );
     }
-    $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
 
-    $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
-      FacebookAdsToolbox::getBaseUrl().
-      $product->getUrlPath());
-    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
-      FacebookAdsToolbox::getBaseUrlMedia().
-      'catalog/product'.$product->getImage());
+    $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
+    // description can't be all uppercase
+    $items[self::ATTR_DESCRIPTION] = $this->lowercaseIfAllCaps($items[self::ATTR_DESCRIPTION]);
+
+    $items[self::ATTR_LINK] = $this->buildProductAttr(
+      self::ATTR_LINK,
+      $product->getProductUrl());
+
+    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(
+      self::ATTR_IMAGE_LINK,
+      $this->getImageURL($product));
 
     $brand = null;
-    if ($product->getData('brand')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('brand'));
-    }
-    if (!$brand && $product->getData('manufacturer')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('manufacturer'));
+    $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'brand');
+    if (!$brand) {
+      $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'manufacturer');
     }
     $items[self::ATTR_BRAND] = ($brand) ? $brand : $this->defaultBrand();
 
@@ -198,17 +221,31 @@ class FacebookProductFeed {
     $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : $this->defaultCondition();
 
     $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
-      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
+      $stock->getIsInStock() ? 'in stock' : 'out of stock');
+
+    $price = Mage::getModel('directory/currency')->format(
+      $this->getProductPrice($product),
+      array('display'=>Zend_Currency::NO_SYMBOL),
+      false);
+    if ($this->conversion_needed) {
+      $price = $this->convertCurrency($price);
+    }
     $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
       sprintf('%s %s',
-        Mage::getModel('directory/currency')->format(
-          $product->getFinalPrice(),
-          array('display'=>Zend_Currency::NO_SYMBOL),
-          false),
-        Mage::app()->getStore()->getDefaultCurrencyCode()));
+        $this->stripCurrencySymbol($price),
+        Mage::app()->getStore()->getBaseCurrencyCode()));
 
     $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
       $product->getShortDescription());
+
+    $items[self::ATTR_PRODUCT_TYPE] =
+      $this->buildProductAttr(self::ATTR_PRODUCT_TYPE,
+        $this->getCategoryPath($product));
+
+    $items[self::ATTR_GOOGLE_PRODUCT_CATEGORY] =
+      $this->buildProductAttr(self::ATTR_GOOGLE_PRODUCT_CATEGORY,
+        $product->getData('google_product_category'));
+
     return $items;
   }
 
@@ -250,6 +287,15 @@ class FacebookProductFeed {
   private function writeProducts($io, $total_number_of_products, $should_log) {
     $count = 0;
     $batch_max = 100;
+
+    $locale_code = Mage::app()->getLocale()->getLocaleCode();
+    $symbols = Zend_Locale_Data::getList($locale_code, 'symbols');
+    $this->group_separator = $symbols['group'];
+    $this->decimal_separator = $symbols['decimal'];
+    $this->conversion_needed = $this->isCurrencyConversionNeeded();
+    $exception_count = 0;
+    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+
     while ($count < $total_number_of_products) {
       if ($should_log) {
        self::log(
@@ -260,22 +306,43 @@ class FacebookProductFeed {
             $total_number_of_products :
             ($count + $batch_max)));
       }
+
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
+        ->addStoreFilter($store_id)
         ->setPageSize($batch_max)
-        ->setCurPage($count / $batch_max + 1);
+        ->setCurPage($count / $batch_max + 1)
+        ->addUrlRewrite();
 
       foreach ($products as $product) {
+        $product->setStoreId($store_id);
         if ($product->getVisibility() !=
               Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
             $product->getStatus() !=
               Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
-          $e = $this->buildProductEntry($product);
-          $io->streamWrite($e."\n");
+
+          try {
+            $e = $this->buildProductEntry($product);
+            $io->streamWrite($e."\n");
+          } catch (Exception $e) {
+            $exception_count++;
+            // Don't overload the logs, log the first 3 exceptions.
+            if ($exception_count <= 3) {
+              self::logException($e);
+            }
+            // If it looks like a systemic failure : stop feed generation.
+            if ($exception_count > 100) {
+              throw $e;
+            }
+          }
         }
       }
       unset($products);
       $count += $batch_max;
+    }
+
+    if ($exception_count != 0) {
+      self::log("Exceptions in Feed Generation : ".$exception_count);
     }
   }
 
@@ -385,4 +452,173 @@ class FacebookProductFeed {
     return self::fileIsStale($file_path);
   }
 
+  private function lowercaseIfAllCaps($string) {
+    // if contains lowercase or non-western characters, don't update string
+    if (!preg_match('/[a-z]/', $string) && !preg_match('/[^\\p{Common}\\p{Latin}]/u', $string)) {
+      $latin_string = preg_replace('/[^\\p{Latin}]/u', '', $string);
+      if ($latin_string !== '' &&
+        mb_strtoupper($latin_string, 'utf-8') === $latin_string) {
+        return mb_strtolower($string, 'utf-8');
+      }
+    }
+    return $string;
+  }
+
+  private function getCorrectText($product, $column, $attribute) {
+    if ($product->getData($attribute)) {
+      $text = $this->buildProductAttr($column, $product->getAttributeText($attribute));
+      if (!$text) {
+        $text = $this->buildProductAttr($column, $product->getData($attribute));
+      }
+      return $text;
+    }
+    return null;
+  }
+
+  private function isCurrencyConversionNeeded() {
+    if ($this->group_separator !== ',' && $this->group_separator !== '.') {
+      return true;
+    } else if ($this->decimal_separator !== ',' &&
+      $this->decimal_separator !== '.') {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private function convertCurrency($price) {
+    $price = str_replace($this->group_separator, '', $price);
+    $price = str_replace($this->decimal_separator, '.', $price);
+    return $price;
+  }
+
+  private function getImageURL($product) {
+    $image_url = null;
+    $image = $product->getImage();
+    if (!$image || $image === '' || $image === 'no_selection') {
+      $product->load('media_gallery');
+      $gal = $product->getMediaGalleryImages();
+      if ($gal) {
+        foreach ($gal as $gal_image) {
+          if ($gal_image['url'] && $gal_image['url'] !== '') {
+            $image_url = $gal_image['url'];
+            break;
+          }
+        }
+      }
+    }
+    if (!$image_url) {
+      $image_url = FacebookAdsToolbox::getBaseUrlMedia().'catalog/product'.$image;
+    }
+    return $image_url;
+  }
+
+  private function getProductPrice($product) {
+    switch ($product->getTypeId()) {
+      case 'configurable':
+        return $this->getConfigurableProductPrice($product);
+      case 'grouped':
+        return $this->getGroupedProductPrice($product);
+      case 'bundle':
+        return $this->getBundleProductPrice($product);
+      default:
+        return $this->getFinalPrice($product);
+    }
+  }
+
+  private function getConfigurableProductPrice($product) {
+    if ($product->getFinalPrice() === 0) {
+      $configurable = Mage::getModel('catalog/product_type_configurable')
+        ->setProduct($product);
+      $simple_collection = $configurable->getUsedProductCollection()
+        ->addAttributeToSelect('price')->addFilterByRequiredOptions();
+      foreach ($simple_collection as $simple_product) {
+        if ($simple_product->getPrice() > 0) {
+          return $this->getFinalPrice($simple_product);
+        }
+      }
+    }
+    return $this->getFinalPrice($product);
+  }
+
+  private function getBundleProductPrice($product) {
+    $configurable = Mage::getModel('bundle/product_type')
+      ->setProduct($product);
+
+    $collection = $configurable
+      ->getSelectionsCollection(
+        $configurable->getOptionsIds($product),
+        $product)
+      ->addAttributeToSelect('price')
+      ->addFilterByRequiredOptions();
+
+    $pm = $product->getPriceModel();
+
+    $option_prices = array();
+    $required_groups = $configurable
+      ->getProductsToPurchaseByReqGroups($product);
+    foreach ($required_groups as $group) {
+      $min_price = INF;
+      $bundle_quantity = 1;
+      $selection_quantity = 1;
+      foreach ($group as $item) {
+        $item_price = $pm->getSelectionFinalTotalPrice($product, $item,
+         $bundle_quantity, $selection_quantity);
+        $item_price = $this->getFinalPrice($item, $item_price);
+        $min_price = min($min_price, $item_price);
+      }
+      $option_prices[] = $min_price;
+    }
+
+    return $this->getFinalPrice($product) + array_sum($option_prices);
+  }
+
+  private function getGroupedProductPrice($product) {
+    $assoc_products = $product->getTypeInstance(true)
+      ->getAssociatedProductCollection($product)
+      ->addAttributeToSelect('price')
+      ->addAttributeToSelect('tax_class_id')
+      ->addAttributeToSelect('tax_percent');
+
+    $min_price = INF;
+    foreach ($assoc_products as $assoc_product) {
+      $min_price = min($min_price, $this->getFinalPrice($assoc_product));
+      }
+    return $min_price;
+  }
+
+  private function getFinalPrice($product, $price = null) {
+    if (!isset($this->taxHelper)) {
+      $this->taxHelper = Mage::helper('tax');
+    }
+    if ($price === null) {
+      $price = $product->getFinalPrice();
+    }
+    return $this->taxHelper->getPrice($product, $price);
+  }
+
+  private function stripCurrencySymbol($price) {
+    if (!isset($this->currency_strip_needed)) {
+      $this->currency_strip_needed = !preg_match('/^[0-9,.]*$/', $price);
+    }
+    if ($this->currency_strip_needed) {
+      return preg_replace('/[^0-9,.]/', '', $price);
+    } else {
+      return $price;
+    }
+  }
+
+  private function getCategoryPath($product) {
+    $category_string = "";
+    $category = $product->getCategoryCollection()
+                        ->addAttributeToSelect('name')
+                        ->getFirstItem();
+    while ($category->getName() && $category->getName() != 'Default Category') {
+      $category_string = ($category_string) ?
+        $category->getName()." > ".$category_string :
+        $category->getName();
+      $category = $category->getParentCategory();
+    }
+    return $category_string;
+  }
 }
