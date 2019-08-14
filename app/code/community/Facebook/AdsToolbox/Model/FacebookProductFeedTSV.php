@@ -30,10 +30,6 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
     return $this->buildProductAttrText($attr_name, $attr_value, 'tsvescape');
   }
 
-  protected function defaultBrand() {
-    return 'original';
-  }
-
   protected function defaultCondition() {
     return 'new';
   }

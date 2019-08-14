@@ -53,7 +53,11 @@ class FacebookProductFeed {
   }
 
   protected function defaultBrand() {
-    return $this->buildProductAttr(self::ATTR_BRAND, 'original');
+    if (!isset($this->defaultBrand)) {
+      $this->defaultBrand =
+        $this->buildProductAttr(self::ATTR_BRAND, FacebookAdsToolbox::getStoreName());
+    }
+    return $this->defaultBrand;
   }
 
   protected function defaultCondition() {
@@ -110,7 +114,7 @@ class FacebookProductFeed {
             $attr_value = substr($attr_value, 0, 5000);
           }
           // description can't be all uppercase
-          //$attr_value = $this->uppercaseFirstOnlyIfAllCaps($attr_value);
+          $attr_value = $this->uppercaseFirstOnlyIfAllCaps($attr_value);
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
@@ -180,16 +184,15 @@ class FacebookProductFeed {
     $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
       FacebookAdsToolbox::getBaseUrl().
       $product->getUrlPath());
-    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
-      FacebookAdsToolbox::getBaseUrlMedia().
-      'catalog/product'.$product->getImage());
+
+    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(
+      self::ATTR_IMAGE_LINK,
+      $this->getImageURL($product));
 
     $brand = null;
-    if ($product->getData('brand')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('brand'));
-    }
-    if (!$brand && $product->getData('manufacturer')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('manufacturer'));
+    $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'brand');
+    if (!$brand) {
+      $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'manufacturer');
     }
     $items[self::ATTR_BRAND] = ($brand) ? $brand : $this->defaultBrand();
 
@@ -200,13 +203,18 @@ class FacebookProductFeed {
     $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : $this->defaultCondition();
 
     $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
-      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
+      $stock->getIsInStock() ? 'in stock' : 'out of stock');
+
+    $price = Mage::getModel('directory/currency')->format(
+      $this->getUpdatedPriceForConfigurableProduct($product),
+      array('display'=>Zend_Currency::NO_SYMBOL),
+      false);
+    if ($this->conversion_needed) {
+      $price = $this->convertCurrency($price);
+    }
     $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
       sprintf('%s %s',
-        Mage::getModel('directory/currency')->format(
-          $product->getFinalPrice(),
-          array('display'=>Zend_Currency::NO_SYMBOL),
-          false),
+        $price,
         Mage::app()->getStore()->getDefaultCurrencyCode()));
 
     $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
@@ -252,6 +260,13 @@ class FacebookProductFeed {
   private function writeProducts($io, $total_number_of_products, $should_log) {
     $count = 0;
     $batch_max = 100;
+
+    $locale_code = Mage::app()->getLocale()->getLocaleCode();
+    $symbols = Zend_Locale_Data::getList($locale_code, 'symbols');
+    $this->group_separator = $symbols['group'];
+    $this->decimal_separator = $symbols['decimal'];
+    $this->conversion_needed = $this->isCurrencyConversionNeeded();
+
     while ($count < $total_number_of_products) {
       if ($should_log) {
        self::log(
@@ -388,8 +403,8 @@ class FacebookProductFeed {
   }
 
   private function uppercaseFirstOnlyIfAllCaps($string) {
-    // if contains non-western characters, it can't be all uppercase
-    if (!preg_match('/[^\\p{Common}\\p{Latin}]/u', $string)) {
+    // if contains lowercase or non-western characters, don't update string
+    if (!preg_match('/[a-z]/', $string) && !preg_match('/[^\\p{Common}\\p{Latin}]/u', $string)) {
       $latin_string = preg_replace('/[^\\p{Latin}]/u', '', $string);
       if ($latin_string !== '' &&
         mb_strtoupper($latin_string, 'utf-8') === $latin_string) {
@@ -397,5 +412,71 @@ class FacebookProductFeed {
       }
     }
     return $string;
+  }
+
+  private function getCorrectText($product, $column, $attribute) {
+    if ($product->getData($attribute)) {
+      $text = $this->buildProductAttr($column, $product->getAttributeText($attribute));
+      if (!$text) {
+        $text = $this->buildProductAttr($column, $product->getData($attribute));
+      }
+      return $text;
+    }
+    return null;
+  }
+
+  private function isCurrencyConversionNeeded() {
+    if ($this->group_separator !== ',' && $this->group_separator !== '.') {
+      return true;
+    } else if ($this->decimal_separator !== ',' &&
+      $this->decimal_separator !== '.') {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private function convertCurrency($price) {
+    $price = str_replace($this->group_separator, '', $price);
+    $price = str_replace($this->decimal_separator, '.', $price);
+    return $price;
+  }
+
+  private function getImageURL($product) {
+    $image_url = null;
+    $image = $product->getImage();
+    if (!$image || $image === '' || $image === 'no_selection') {
+      $product->load('media_gallery');
+      $gal = $product->getMediaGalleryImages();
+      if ($gal) {
+        foreach ($gal as $gal_image) {
+          if ($gal_image['url'] && $gal_image['url'] !== '') {
+            $image_url = $gal_image['url'];
+            break;
+          }
+        }
+      }
+    }
+    if (!$image_url) {
+      $image_url = FacebookAdsToolbox::getBaseUrlMedia().'catalog/product'.$image;
+    }
+    return $image_url;
+  }
+
+  private function getUpdatedPriceForConfigurableProduct($product) {
+    if ($product->getTypeId() === 'configurable') {
+      if ($product->getFinalPrice() === 0) {
+        $configurable = Mage::getModel('catalog/product_type_configurable')
+          ->setProduct($product);
+        $simpleCollection = $configurable->getUsedProductCollection()
+          ->addAttributeToSelect('price')->addFilterByRequiredOptions();
+        foreach ($simpleCollection as $simpleProduct) {
+          if ($simpleProduct->getPrice() > 0) {
+            return $simpleProduct->getPrice();
+          }
+        }
+      }
+    }
+    return $product->getFinalPrice();
   }
 }
