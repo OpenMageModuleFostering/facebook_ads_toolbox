@@ -1,10 +1,10 @@
-<?php if ($this->shouldFireAddToCart()) { ?>
+<?php if ($this->getFacebookPixelID() && $this->shouldFireAddToCart()) { ?>
   <script>
     fbq('track', 'AddToCart', {
       source: 'magento',
       version: "<?php echo $this->getMagentoVersion() ?>",
       pluginVersion: "<?php echo $this->getPluginVersion() ?>",
-      content_type: "<?php echo $this->getContentType() ?>", 
+      content_type: "<?php echo $this->getContentType() ?>",
       content_ids: [<?php echo $this->getContentIDs() ?>]
       <?php if ($this->getContentName()) { ?>
         , content_name: "<?php echo $this->getContentName() ?>"

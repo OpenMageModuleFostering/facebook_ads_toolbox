@@ -8,10 +8,23 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-require_once 'app/Mage.php';
-require_once 'Feedindex.php';
-require_once 'Pixelindex.php';
-require_once __DIR__.'/../../lib/fb.php';
+if (file_exists(__DIR__.'/Feedindex.php')) {
+  include_once 'Feedindex.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Block_Adminhtml_Feedindex.php';
+}
+
+if (file_exists(__DIR__.'/Pixelindex.php')) {
+  include_once 'Pixelindex.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Block_Adminhtml_Pixelindex.php';
+}
+
+if (file_exists(__DIR__.'/../../lib/fb.php')) {
+  include_once __DIR__.'/../../lib/fb.php';
+} else {
+  include_once 'Facebook_AdsToolbox_lib_fb.php';
+}
 
 class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   extends Mage_Adminhtml_Block_Template {
@@ -42,7 +55,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   }
 
   public function fetchStoreName() {
-    return $this->getPixelindex()->fetchStoreName();
+    return htmlspecialchars(FacebookAdsToolbox::getStoreName(), ENT_QUOTES, 'UTF-8');
   }
 
   public function fetchStoreTimezone() {
@@ -58,7 +71,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
   }
 
   public function getStoreBaseUrl() {
-    return $this->getFeedindex()->getBaseUrl();
+    return FacebookAdsToolbox::getBaseUrl();
   }
 
   public function fetchFeedSetupEnabled() {
@@ -71,25 +84,26 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
 
   public function getTotalVisibleProducts() {
     return Mage::getModel('catalog/product')->getCollection()
+      ->addStoreFilter(FacebookAdsToolbox::getDefaultStoreId())
       ->addAttributeToFilter('visibility',
           array(
             'neq' =>
               Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE
           )
       )
+      ->addAttributeToFilter('status',
+          array(
+            'eq' =>
+              Mage_Catalog_Model_Product_Status::STATUS_ENABLED
+          ))
       ->getSize();
   }
 
   public function getFeedUrl() {
-    $feed_url = sprintf('%sfacebook_adstoolbox_product_feed.%s',
-      $this->getStoreBaseUrl(),
+    return sprintf('%sfacebook_adstoolbox_product_feed.%s',
+      $this->getFeedIndex()->getBaseUrl(),
       strtolower($this->fetchFeedSetupFormat())
     );
-    if (extension_loaded('zlib')) {
-      return $feed_url.'.gz';
-    } else {
-      return $feed_url;
-    }
   }
 
   public function fetchFeedSamples() {
@@ -121,5 +135,21 @@ class Facebook_AdsToolbox_Block_Adminhtml_Diaindex
       return true;
     }
     return false;
+  }
+
+  public function getModuleList() {
+    $modules = Mage::getConfig()->getNode('modules')->children();
+    $simple_module_list = array();
+    foreach ($modules as $moduleName => $moduleSettings) {
+      $active = $moduleSettings->is('active') ? "active" : "disabled";
+      $version_key = 'version';
+      $module = $moduleName . ", " . $active . ", " . $moduleSettings->$version_key;
+      array_push($simple_module_list, $module);
+    }
+    return implode('; ', $simple_module_list);
+  }
+
+  public function checkFeedWriteError() {
+    return Mage::getModel('Facebook_AdsToolbox/observer')->checkFeedWriteError();
   }
 }

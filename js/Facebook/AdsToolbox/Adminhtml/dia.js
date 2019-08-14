@@ -103,6 +103,7 @@ var DiaFlowContainer = React.createClass({
         }
         var origin = event.origin || event.originalEvent.origin;
         if ((0, _utils.urlFromSameDomain)(origin, window.facebookAdsToolboxConfig.popupOrigin)) {
+          _utils.togglePopupOriginWeb(origin);
           callback && callback(event.data);
         }
       }, false);
@@ -219,7 +220,6 @@ var DiaFlowContainer = React.createClass({
   openPopup: function openPopup() {
     if (!this.state.diaSettingId && window.facebookAdsToolboxConfig.feed.totalVisibleProducts < 10000) {
       new Ajax.Request(window.facebookAdsToolboxAjax.generateFeedNow, {
-        method: 'post',
         parameters: {useCache : true},
         onSuccess: function onSuccess() {}
       });
@@ -240,7 +240,6 @@ var DiaFlowContainer = React.createClass({
   },
   launchDiaWizard: function launchDiaWizard() {
     this.diaConfig = { 'clientSetup': window.facebookAdsToolboxConfig };
-    this.diaConfig.feedPrepared = window.facebookAdsToolboxConfig.feedPrepared;
     this.openPopup();
   },
   closeModal: function closeModal() {
@@ -258,6 +257,7 @@ var DiaFlowContainer = React.createClass({
       'Your Facebook Store ID: ',
       this.state.diaSettingId
     ) : '';
+    var feedWritePermissionError = window.facebookAdsToolboxConfig.feedWritePermissionError;
     var modal = this.state.showModal ? React.createElement(_modal2.default, { onClose: this.closeModal, message: this.modalMessage }) : null;
     return React.createElement(
       'div',
@@ -280,10 +280,18 @@ var DiaFlowContainer = React.createClass({
         React.createElement(
           'center',
           null,
-          React.createElement(
+          (!feedWritePermissionError) ? React.createElement(
             'button',
             { className: 'blue', onClick: this.launchDiaWizard },
             this.state.diaSettingId ? 'Manage Settings' : 'Get Started'
+          )
+          :
+          React.createElement(
+            'h2',
+            {style: {color: 'red'}},
+            'Please enable write permissions in the ',
+            feedWritePermissionError,
+            ' directory to use this extension.'
           )
         )
       )
@@ -445,7 +453,7 @@ exports.isIE = isIE;
 exports.parseURL = parseURL;
 exports.urlFromSameDomain = urlFromSameDomain;
 exports.safeJSONParse = safeJSONParse;
-exports.togglePopupOriginBusiness = togglePopupOriginBusiness;
+exports.togglePopupOriginWeb = togglePopupOriginWeb;
 
 var _ieOverlay = require('./fb/ieOverlay.jsx');
 
@@ -514,7 +522,9 @@ function parseURL(url) {
 function urlFromSameDomain(url1, url2) {
   var u1 = parseURL(url1);
   var u2 = parseURL(url2);
-  return u1.protocol === u2.protocol && u1.host === u2.host;
+  var u1host = u1.host.replace('web.', 'www.');
+  var u2host = u2.host.replace('web.', 'www.');
+  return u1.protocol === u2.protocol && u1host === u2host;
 };
 
 function safeJSONParse(jsonstr) {
@@ -526,12 +536,12 @@ function safeJSONParse(jsonstr) {
   }
 };
 
-function togglePopupOriginBusiness(dia_origin) {
+function togglePopupOriginWeb(dia_origin) {
   var current_origin = window.facebookAdsToolboxConfig.popupOrigin;
-  if (dia_origin.includes('business') && !current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www', 'business');
-  } else if (!dia_origin.includes('business') && current_origin.includes('business')) {
-    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('business', 'www');
+  if (dia_origin.includes('web.') && !current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('www.', 'web.');
+  } else if (!dia_origin.includes('web.') && current_origin.includes('web.')) {
+    window.facebookAdsToolboxConfig.popupOrigin = current_origin.replace('web.', 'www.');
   }
 };
 

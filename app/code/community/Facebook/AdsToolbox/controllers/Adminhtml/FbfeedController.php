@@ -8,8 +8,19 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-require_once __DIR__.'/../../lib/fb.php';
-require_once __DIR__.'/../../Model/FacebookProductFeed.php';
+if (file_exists(__DIR__.'/../../lib/fb.php')) {
+  include_once __DIR__.'/../../lib/fb.php';
+} else {
+  include_once __DIR__.'/../../../../Facebook_AdsToolbox_lib_fb.php';
+}
+
+if (file_exists(__DIR__.'/../../Model/FacebookProductFeed.php')) {
+  include_once __DIR__.'/../../Model/FacebookProductFeed.php';
+} else if (file_exists(__DIR__.'/../../../../Facebook_AdsToolbox_Model_FacebookProductFeed.php')) {
+  include_once __DIR__.'/../../../../Facebook_AdsToolbox_Model_FacebookProductFeed.php';
+} else {
+  include_once 'Facebook_AdsToolbox_Model_FacebookProductFeed.php';
+}
 
 class Facebook_AdsToolbox_Adminhtml_FbfeedController
   extends Mage_Adminhtml_Controller_Action {

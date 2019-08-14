@@ -9,8 +9,11 @@
  */
 
 
-require_once 'app/Mage.php';
-require_once __DIR__.'/../lib/fb.php';
+if (file_exists(__DIR__.'/../lib/fb.php')) {
+  include_once __DIR__.'/../lib/fb.php';
+} else {
+  include_once 'Facebook_AdsToolbox_lib_fb.php';
+}
 
 class FacebookProductFeed {
 
@@ -25,14 +28,22 @@ class FacebookProductFeed {
   const ATTR_PRICE = 'price';
   const ATTR_GOOGLE_PRODUCT_CATEGORY = 'google_product_category';
   const ATTR_SHORT_DESCRIPTION = 'short_description';
+  const ATTR_PRODUCT_TYPE = 'product_type';
 
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED =
     'facebook_adstoolbox/feed/generation/enabled';
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT =
     'facebook_adstoolbox/feed/generation/format';
+  const PRICE_PRECISION = 2;
 
   public static function log($info) {
     Mage::log($info, Zend_Log::INFO, FacebookAdsToolbox::FEED_LOGFILE);
+  }
+
+  public static function logException($e) {
+    Mage::log($e->getMessage(), Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
+    Mage::log($e->getTraceAsString(), Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
+    Mage::log($e, Zend_Log::DEBUG, FacebookAdsToolbox::FEED_EXCEPTION);
   }
 
   public static function getCurrentSetup() {
@@ -53,7 +64,11 @@ class FacebookProductFeed {
   }
 
   protected function defaultBrand() {
-    return $this->buildProductAttr(self::ATTR_BRAND, 'original');
+    if (!isset($this->defaultBrand)) {
+      $this->defaultBrand =
+        $this->buildProductAttr(self::ATTR_BRAND, FacebookAdsToolbox::getStoreName());
+    }
+    return $this->defaultBrand;
   }
 
   protected function defaultCondition() {
@@ -94,22 +109,22 @@ class FacebookProductFeed {
         break;
       case self::ATTR_TITLE:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // title max size: 100
           if (strlen($attr_value) > 100) {
             $attr_value = substr($attr_value, 0, 100);
           }
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
       case self::ATTR_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // description max size: 5000
           if (strlen($attr_value) > 5000) {
             $attr_value = substr($attr_value, 0, 5000);
           }
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
       case self::ATTR_GOOGLE_PRODUCT_CATEGORY:
@@ -123,13 +138,23 @@ class FacebookProductFeed {
         break;
       case self::ATTR_SHORT_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // max size: 1000
           // and replacing the last 3 characters with '...' if it's too long
           $attr_value = strlen($attr_value) >= 1000 ?
             substr($attr_value, 0, 995).'...' :
             $attr_value;
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
+        }
+        break;
+      case self::ATTR_PRODUCT_TYPE:
+        // product_type max size: 750
+        if ((bool)$attr_value) {
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
+          if (strlen($attr_value) > 750) {
+            $attr_value = substr($attr_value, strlen($attr_value) - 750, 750);
+          }
+          return $attr_value;
         }
         break;
     }
@@ -152,10 +177,10 @@ class FacebookProductFeed {
     return $this->buildProductAttrText($attribute, $value);
   }
 
-  protected function buildProductEntry($product) {
+  protected function buildProductEntry($product, $product_name) {
     $items = array();
     $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
-    $title = $product->getName();
+    $title = $product_name ? $product_name : $product->getName();
 
     $items[self::ATTR_ID] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
     $items[self::ATTR_TITLE] = $this->buildProductAttr(self::ATTR_TITLE, $title);
@@ -173,21 +198,27 @@ class FacebookProductFeed {
         $product->getShortDescription()
       );
     }
-    $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
 
-    $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
-      FacebookAdsToolbox::getBaseUrl().
-      $product->getUrlPath());
-    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
-      FacebookAdsToolbox::getBaseUrlMedia().
-      'catalog/product'.$product->getImage());
+    $items[self::ATTR_DESCRIPTION] = ($description) ? $description : $items[self::ATTR_TITLE];
+    // description can't be all uppercase
+    $items[self::ATTR_DESCRIPTION] = $this->lowercaseIfAllCaps($items[self::ATTR_DESCRIPTION]);
+
+    $product_link = $product->getProductUrl();
+    if (!filter_var($product_link, FILTER_VALIDATE_URL)) {
+      $product_link = $this->store_url . $product_link;
+    }
+    $items[self::ATTR_LINK] = $this->buildProductAttr(
+      self::ATTR_LINK,
+      $product_link);
+
+    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(
+      self::ATTR_IMAGE_LINK,
+      $this->getImageURL($product));
 
     $brand = null;
-    if ($product->getData('brand')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('brand'));
-    }
-    if (!$brand && $product->getData('manufacturer')) {
-      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('manufacturer'));
+    $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'brand');
+    if (!$brand) {
+      $brand = $this->getCorrectText($product, self::ATTR_BRAND, 'manufacturer');
     }
     $items[self::ATTR_BRAND] = ($brand) ? $brand : $this->defaultBrand();
 
@@ -198,22 +229,66 @@ class FacebookProductFeed {
     $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : $this->defaultCondition();
 
     $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
-      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
+      $stock->getIsInStock() ? 'in stock' : 'out of stock');
+
+    $price = Mage::getModel('directory/currency')->formatPrecision(
+      $this->getProductPrice($product),
+      self::PRICE_PRECISION,
+      array('display'=>Zend_Currency::NO_SYMBOL),
+      false);
+    if ($this->conversion_needed) {
+      $price = $this->convertCurrency($price);
+    }
     $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
       sprintf('%s %s',
-        Mage::getModel('directory/currency')->format(
-          $product->getFinalPrice(),
-          array('display'=>Zend_Currency::NO_SYMBOL),
-          false),
-        Mage::app()->getStore()->getDefaultCurrencyCode()));
+        $this->stripCurrencySymbol($price),
+        Mage::app()->getStore()->getBaseCurrencyCode()));
 
     $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
       $product->getShortDescription());
+
+    $items[self::ATTR_PRODUCT_TYPE] =
+      $this->buildProductAttr(self::ATTR_PRODUCT_TYPE,
+        $this->getCategoryPath($product));
+
+    $items[self::ATTR_GOOGLE_PRODUCT_CATEGORY] =
+      $this->buildProductAttr(self::ATTR_GOOGLE_PRODUCT_CATEGORY,
+        $product->getData('google_product_category'));
+
     return $items;
   }
 
   protected function htmlDecode($attr_value) {
     return strip_tags(html_entity_decode(($attr_value)));
+  }
+
+  // Generates a map of the form : 4 => "Root > Mens > Shoes"
+  private function generateCategoryNameMap() {
+    $categories = Mage::getModel('catalog/category')->getCollection()
+      ->addAttributeToSelect('name')
+      ->addAttributeToSelect('path')
+      ->addAttributeToSelect('is_active')
+      ->addAttributeToFilter('is_active', 1);
+    $name = array();
+    $breadcrumb = array();
+    foreach ($categories as $category)
+    {
+      $entity_id = $category->getId();
+      $name[$entity_id] = $category->getName();
+      $breadcrumb[$entity_id] = $category->getPath();
+    }
+    // Converts the product category paths to human readable form.
+    // e.g.  "1/2/3" => "Root > Mens > Shoes"
+    foreach ($name as $id => $value)
+    {
+        $breadcrumb[$id] = implode(" > ", array_filter(array_map(
+            function ($inner_id) use (&$name) {
+              return isset($name[$inner_id]) ? $name[$inner_id] : null;
+            },
+            explode("/", $breadcrumb[$id])
+        )));
+    }
+    return $breadcrumb;
   }
 
   public function save() {
@@ -224,18 +299,25 @@ class FacebookProductFeed {
     $io->open(array('path' => $feed_file_path));
     if ($io->fileExists($feed_file_path) &&
         !$io->isWriteable($feed_file_path)) {
+      self::log('Feed file is not writable');
       Mage::throwException(Mage::helper('Facebook_AdsToolbox')->__(
         'File "%s" cannot be saved. Please make sure the path "%s" is '.
         'writable by web server.',
         $feed_file_path));
     }
 
+    self::log('Generating Categories');
+    $this->categoryNameMap = $this->generateCategoryNameMap();
+
     $io->streamOpen($this->getFileName());
     self::log('going to generate file:'.$this->getFileName());
 
     $io->streamWrite($this->buildHeader()."\n");
 
-    $collection = Mage::getModel('catalog/product')->getCollection();
+    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+
+    $collection = Mage::getModel('catalog/product')->getCollection()
+      ->addStoreFilter($store_id);
     $total_number_of_products = $collection->getSize();
     unset($collection);
 
@@ -250,7 +332,36 @@ class FacebookProductFeed {
   private function writeProducts($io, $total_number_of_products, $should_log) {
     $count = 0;
     $batch_max = 100;
+
+    $locale_code = Mage::app()->getLocale()->getLocaleCode();
+    $symbols = Zend_Locale_Data::getList($locale_code, 'symbols');
+    $this->group_separator = $symbols['group'];
+    $this->decimal_separator = $symbols['decimal'];
+    $this->conversion_needed = $this->isCurrencyConversionNeeded();
+    $skip_count = 0;
+    $exception_count = 0;
+    $store_id = FacebookAdsToolbox::getDefaultStoreId();
+
+    $this->store_url = Mage::app()
+      ->getStore()
+      ->getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
+
+    if ($should_log) {
+      self::log(sprintf('About to begin writing %d products',$total_number_of_products));
+    }
+
+    $time_limit = (int) ini_get('max_execution_time');
+    if ($time_limit !== 0 && $time_limit < 1800) {
+      set_time_limit(1800);
+    }
     while ($count < $total_number_of_products) {
+      // Compute and log memory usage
+      self::log(
+        sprintf(
+          "Current Memory usage: %f M / %s",
+          memory_get_usage() / (1024.0 * 1024.0), // Value returned is in bytes
+          ini_get('memory_limit')));
+
       if ($should_log) {
        self::log(
         sprintf(
@@ -260,23 +371,53 @@ class FacebookProductFeed {
             $total_number_of_products :
             ($count + $batch_max)));
       }
+
       $products = Mage::getModel('catalog/product')->getCollection()
         ->addAttributeToSelect('*')
+        ->addStoreFilter($store_id)
         ->setPageSize($batch_max)
-        ->setCurPage($count / $batch_max + 1);
+        ->setCurPage($count / $batch_max + 1)
+        ->addUrlRewrite();
 
       foreach ($products as $product) {
-        if ($product->getVisibility() !=
-              Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
-            $product->getStatus() !=
-              Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
-          $e = $this->buildProductEntry($product);
-          $io->streamWrite($e."\n");
+        try {
+          $product_name = $product->getName();
+          if ($product->getVisibility() != Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
+              $product->getStatus() != Mage_Catalog_Model_Product_Status::STATUS_DISABLED &&
+              $product_name) {
+            $product->setStoreId($store_id);
+            $e = $this->buildProductEntry($product, $product_name);
+            $io->streamWrite($e."\n");
+          } else {
+            $skip_count++;
+          }
+        } catch (\Exception $e) {
+          $exception_count++;
+          // Don't overload the logs, log the first 3 exceptions.
+          if ($exception_count <= 3) {
+            self::logException($e);
+          }
+          // If it looks like a systemic failure : stop feed generation.
+          if ($exception_count > 100) {
+            throw $e;
+          }
         }
       }
       unset($products);
       $count += $batch_max;
     }
+
+    if ($skip_count != 0) {
+      self::log(sprintf('skipped %d products', $skip_count));
+    }
+
+    if ($exception_count != 0) {
+      self::log("Exceptions in Feed Generation : ".$exception_count);
+    }
+  }
+
+  public static function getFeedDirectory() {
+    return Mage::getBaseDir(Mage_Core_Model_Store::URL_TYPE_MEDIA).'/';
   }
 
   public function estimateGenerationTime() {
@@ -288,13 +429,13 @@ class FacebookProductFeed {
     }
 
     $io = new Varien_Io_File();
-    $feed_file_path = Mage::getBaseDir(Mage_Core_Model_Store::URL_TYPE_MEDIA).'/';
-    $io->open(array('path' => $feed_file_path));
+    $io->open(array('path' => self::getFeedDirectory()));
     $io->streamOpen('feed_dryrun.txt');
 
     $collection = Mage::getModel('catalog/product')->getCollection();
     $total_number_of_products = $collection->getSize();
     unset($collection);
+    $this->categoryNameMap = array();
 
     $num_samples =
       ($total_number_of_products <= 500) ? $total_number_of_products : 500;
@@ -313,6 +454,8 @@ class FacebookProductFeed {
     // + 30 seconds of buffer time.
     $time_estimate =
       $time_spent * $total_number_of_products / $num_samples * 1.5 + 30;
+
+    self::log('Feed Generation Time Estimate: '.$time_estimate);
 
     Mage::getModel('core/config')->saveConfig(
       'facebook_ads_toolbox/dia/feed/time_estimate',
@@ -368,7 +511,7 @@ class FacebookProductFeed {
   }
 
   public static function fileIsStale($file_path) {
-    $time_file_modified = filemtime($file_path);
+    $time_file_modified = (file_exists($file_path)) ? filemtime($file_path) : 0;
 
     // if we get no file modified time, or the modified time is 8hours ago,
     // we count it as stale
@@ -385,4 +528,150 @@ class FacebookProductFeed {
     return self::fileIsStale($file_path);
   }
 
+  private function processAttrValue($attr_value, $escapefn) {
+    $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+    $attr_value = $this->htmlDecode($attr_value);
+    $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+    return trim($attr_value);
+  }
+
+  private function lowercaseIfAllCaps($string) {
+    // if contains lowercase, don't update string
+    if (!preg_match('/[a-z]/', $string)) {
+      if (mb_strtoupper($string, 'utf-8') === $string) {
+        return mb_strtolower($string, 'utf-8');
+      }
+    }
+    return $string;
+  }
+
+  private function getCorrectText($product, $column, $attribute) {
+    if ($product->getData($attribute)) {
+      $text = $this->buildProductAttr($column, $product->getAttributeText($attribute));
+      if (!$text) {
+        $text = $this->buildProductAttr($column, $product->getData($attribute));
+      }
+      return $text;
+    }
+    return null;
+  }
+
+  public function isCurrencyConversionNeeded() {
+    if ($this->group_separator !== ',' && $this->group_separator !== '.') {
+      return true;
+    } else if ($this->decimal_separator !== ',' &&
+      $this->decimal_separator !== '.') {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private function convertCurrency($price) {
+    $price = str_replace($this->group_separator, '', $price);
+    $price = str_replace($this->decimal_separator, '.', $price);
+    return $price;
+  }
+
+  private function getImageURL($product) {
+    $image_url = null;
+    $image = $product->getImage();
+    if (!$image || $image === '' || $image === 'no_selection') {
+      $product->load('media_gallery');
+      $gal = $product->getMediaGalleryImages();
+      if ($gal) {
+        foreach ($gal as $gal_image) {
+          if ($gal_image['url'] && $gal_image['url'] !== '') {
+            $image_url = $gal_image['url'];
+            break;
+          }
+        }
+      }
+    }
+    if (!$image_url) {
+      $image_url = FacebookAdsToolbox::getBaseUrlMedia().'catalog/product'.$image;
+    }
+    return $image_url;
+  }
+
+  private function getProductPrice($product) {
+    switch ($product->getTypeId()) {
+      case 'configurable':
+        return $this->getConfigurableProductPrice($product);
+      case 'grouped':
+        return $this->getGroupedProductPrice($product);
+      case 'bundle':
+        return $this->getBundleProductPrice($product);
+      default:
+        return $this->getFinalPrice($product);
+    }
+  }
+
+  private function getConfigurableProductPrice($product) {
+    if ($product->getFinalPrice() === 0) {
+      $configurable = Mage::getModel('catalog/product_type_configurable')
+        ->setProduct($product);
+      $simple_collection = $configurable->getUsedProductCollection()
+        ->addAttributeToSelect('price')->addFilterByRequiredOptions();
+      foreach ($simple_collection as $simple_product) {
+        if ($simple_product->getPrice() > 0) {
+          return $this->getFinalPrice($simple_product);
+        }
+      }
+    }
+    return $this->getFinalPrice($product);
+  }
+
+  private function getBundleProductPrice($product) {
+    return $product->getPriceModel()->getTotalPrices($product, 'min', 0, 1);
+  }
+
+  private function getGroupedProductPrice($product) {
+    $assoc_products = $product->getTypeInstance(true)
+      ->getAssociatedProductCollection($product)
+      ->addAttributeToSelect('price')
+      ->addAttributeToSelect('tax_class_id')
+      ->addAttributeToSelect('tax_percent');
+
+    $min_price = INF;
+    foreach ($assoc_products as $assoc_product) {
+      $min_price = min($min_price, $this->getFinalPrice($assoc_product));
+      }
+    return $min_price;
+  }
+
+  private function getFinalPrice($product, $price = null) {
+    if (!isset($this->taxHelper)) {
+      $this->taxHelper = Mage::helper('tax');
+    }
+    if ($price === null) {
+      $price = $product->getFinalPrice();
+    }
+    if ($price === null) {
+      $price = $product->getData('special_price');
+    }
+    return $this->taxHelper->getPrice($product, $price);
+  }
+
+  private function stripCurrencySymbol($price) {
+    if (!isset($this->currency_strip_needed)) {
+      $this->currency_strip_needed = !preg_match('/^[0-9,.]*$/', $price);
+    }
+    if ($this->currency_strip_needed) {
+      return preg_replace('/[^0-9,.]/', '', $price);
+    } else {
+      return $price;
+    }
+  }
+
+  private function getCategoryPath($product) {
+    $category_names = array();
+    $category_ids = $product->getCategoryIds();
+    foreach ($category_ids as $category_id) {
+      if (array_key_exists($category_id, $this->categoryNameMap)) {
+        $category_names[] = $this->categoryNameMap[$category_id];
+      }
+    }
+    return implode(" | ", $category_names);
+  }
 }
