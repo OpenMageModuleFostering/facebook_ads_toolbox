@@ -44,4 +44,8 @@ class Facebook_AdsToolbox_Block_Common extends Mage_Core_Block_Template {
     return 'exmagento-'
       . $this->getMagentoVersion() . '-' . $this->getPluginVersion();
   }
+
+  public function getFacebookPixelID() {
+    return Mage::getStoreConfig('facebook_ads_toolbox/fbpixel/id');
+  }
 }

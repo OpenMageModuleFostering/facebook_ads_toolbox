@@ -26,7 +26,7 @@ class Facebook_AdsToolbox_Block_Adminhtml_Pixelindex
   }
 
   public function fetchStoreName() {
-    FacebookAdsToolbox::getStoreName();
+    return htmlspecialchars(FacebookAdsToolbox::getStoreName(), ENT_QUOTES, 'UTF-8');
   }
 
   public function fetchTimezone() {

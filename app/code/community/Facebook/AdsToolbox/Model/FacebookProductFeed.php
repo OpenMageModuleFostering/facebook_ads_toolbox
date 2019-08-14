@@ -108,22 +108,22 @@ class FacebookProductFeed {
         break;
       case self::ATTR_TITLE:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // title max size: 100
           if (strlen($attr_value) > 100) {
             $attr_value = substr($attr_value, 0, 100);
           }
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
       case self::ATTR_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // description max size: 5000
           if (strlen($attr_value) > 5000) {
             $attr_value = substr($attr_value, 0, 5000);
           }
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
       case self::ATTR_GOOGLE_PRODUCT_CATEGORY:
@@ -137,23 +137,23 @@ class FacebookProductFeed {
         break;
       case self::ATTR_SHORT_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           // max size: 1000
           // and replacing the last 3 characters with '...' if it's too long
           $attr_value = strlen($attr_value) >= 1000 ?
             substr($attr_value, 0, 995).'...' :
             $attr_value;
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
       case self::ATTR_PRODUCT_TYPE:
         // product_type max size: 750
         if ((bool)$attr_value) {
-          $attr_value = trim($this->htmlDecode($attr_value));
+          $attr_value = $this->processAttrValue($attr_value, $escapefn);
           if (strlen($attr_value) > 750) {
             $attr_value = substr($attr_value, strlen($attr_value) - 750, 750);
           }
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return $attr_value;
         }
         break;
     }
@@ -264,6 +264,7 @@ class FacebookProductFeed {
     $io->open(array('path' => $feed_file_path));
     if ($io->fileExists($feed_file_path) &&
         !$io->isWriteable($feed_file_path)) {
+      self::log('Feed file is not writable');
       Mage::throwException(Mage::helper('Facebook_AdsToolbox')->__(
         'File "%s" cannot be saved. Please make sure the path "%s" is '.
         'writable by web server.',
@@ -301,7 +302,21 @@ class FacebookProductFeed {
     $exception_count = 0;
     $store_id = FacebookAdsToolbox::getDefaultStoreId();
 
+    if ($should_log) {
+      self::log(
+        sprintf(
+          'About to begin writing %d products',
+          $total_number_of_products));
+    }
+
     while ($count < $total_number_of_products) {
+      // Compute and log memory usage
+      self::log(
+        sprintf(
+          "Current Memory usage: %f M / %s",
+          memory_get_usage() / (1024.0 * 1024.0), // Value returned is in bytes
+          ini_get('memory_limit')));
+
       if ($should_log) {
        self::log(
         sprintf(
@@ -320,25 +335,25 @@ class FacebookProductFeed {
         ->addUrlRewrite();
 
       foreach ($products as $product) {
-        $product->setStoreId($store_id);
-        if ($product->getVisibility() !=
+        try {
+          $product->setStoreId($store_id);
+          if ($product->getVisibility() !=
               Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE &&
             $product->getStatus() !=
               Mage_Catalog_Model_Product_Status::STATUS_DISABLED) {
 
-          try {
             $e = $this->buildProductEntry($product);
             $io->streamWrite($e."\n");
-          } catch (Exception $e) {
-            $exception_count++;
-            // Don't overload the logs, log the first 3 exceptions.
-            if ($exception_count <= 3) {
-              self::logException($e);
-            }
-            // If it looks like a systemic failure : stop feed generation.
-            if ($exception_count > 100) {
-              throw $e;
-            }
+          }
+        } catch (\Exception $e) {
+          $exception_count++;
+          // Don't overload the logs, log the first 3 exceptions.
+          if ($exception_count <= 3) {
+            self::logException($e);
+          }
+          // If it looks like a systemic failure : stop feed generation.
+          if ($exception_count > 100) {
+            throw $e;
           }
         }
       }
@@ -385,6 +400,8 @@ class FacebookProductFeed {
     // + 30 seconds of buffer time.
     $time_estimate =
       $time_spent * $total_number_of_products / $num_samples * 1.5 + 30;
+
+    self::log('Feed Generation Time Estimate: '.$time_estimate);
 
     Mage::getModel('core/config')->saveConfig(
       'facebook_ads_toolbox/dia/feed/time_estimate',
@@ -455,6 +472,13 @@ class FacebookProductFeed {
     $file_path = $this->getTargetFilePath($supportzip);
     $time_now = time();
     return self::fileIsStale($file_path);
+  }
+
+  private function processAttrValue($attr_value, $escapefn) {
+    $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+    $attr_value = $this->htmlDecode($attr_value);
+    $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+    return trim($attr_value);
   }
 
   private function lowercaseIfAllCaps($string) {

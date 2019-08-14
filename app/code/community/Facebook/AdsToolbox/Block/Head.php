@@ -15,8 +15,4 @@ if (file_exists(__DIR__.'/common.php')) {
 }
 
 class Facebook_AdsToolbox_Block_Head extends Facebook_AdsToolbox_Block_Common {
-
-  public function getFacebookPixelID() {
-    return Mage::getStoreConfig('facebook_ads_toolbox/fbpixel/id');
-  }
 }

@@ -1,9 +1,10 @@
-<script>
+<?php if ($this->getFacebookPixelID()) { ?>
+ <script>
   fbq('track', 'ViewContent', {
     source: 'magento',
     version: "<?php echo $this->getMagentoVersion() ?>",
     pluginVersion: "<?php echo $this->getPluginVersion() ?>",
-    content_type: "<?php echo $this->getContentType() ?>", 
+    content_type: "<?php echo $this->getContentType() ?>",
     content_ids: [<?php echo $this->getContentIDs() ?>]
     <?php if ($this->getContentName()) { ?>
       , content_name: "<?php echo $this->getContentName() ?>"
@@ -18,4 +19,5 @@
       , currency: "<?php echo $this->getCurrency() ?>"
     <?php } ?>
   });
-</script>
+ </script>
+<?php } ?>
