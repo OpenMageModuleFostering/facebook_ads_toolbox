@@ -177,6 +177,13 @@ class FacebookProductFeed {
     return $this->buildProductAttrText($attribute, $value);
   }
 
+  protected function isValidUrl($product_link) {
+    return
+      // This can fail for non unicode links.
+      filter_var($product_link, FILTER_VALIDATE_URL) ||
+      substr($product_link, 0, 4) === 'http';
+  }
+
   protected function buildProductEntry($product, $product_name) {
     $items = array();
     $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
@@ -204,7 +211,7 @@ class FacebookProductFeed {
     $items[self::ATTR_DESCRIPTION] = $this->lowercaseIfAllCaps($items[self::ATTR_DESCRIPTION]);
 
     $product_link = $product->getProductUrl();
-    if (!filter_var($product_link, FILTER_VALIDATE_URL)) {
+    if (!$this->isValidUrl($product_link)) {
       $product_link = $this->store_url . $product_link;
     }
     $items[self::ATTR_LINK] = $this->buildProductAttr(
