@@ -12,6 +12,9 @@ require_once 'app/Mage.php';
 
 class FacebookAdsToolbox {
 
+  const LOGFILE = 'facebook_ads_extension.log';
+  const FEED_LOGFILE = 'facebook_adstoolbox_product_feed.log';
+
   public static function version() {
     return Mage::getConfig()->getModuleConfig("Facebook_AdsToolbox")->version;
   }
@@ -34,8 +37,53 @@ class FacebookAdsToolbox {
   }
 
   public static function getFeedUrl() {
+    $supportzip = extension_loaded('zlib');
+    if ($supportzip) {
+      return self::getBaseURLMedia().'facebook_adstoolbox_product_feed.tsv.gz';
+    } else {
+      return self::getBaseURLMedia().'facebook_adstoolbox_product_feed.tsv';
+    }
+  }
+
+  public static function getFeedGenUrl() {
     return
       FacebookAdsToolbox::getBaseUrl().'facebookadstoolbox/productfeed/gen';
+  }
+
+  public static function getFeedPingUrl() {
+    return
+      FacebookAdsToolbox::getBaseUrl().'facebookadstoolbox/productfeed/genPing';
+  }
+
+  public static function logException($e) {
+     $msg = sprintf("Caught exception: %s.\n%s", $e->getMessage(), $e->getTraceAsString());
+     self::log($msg);
+  }
+
+  public static function getLogs() {
+    $log_file_path = Mage::getBaseDir('log').'/'.self::LOGFILE;
+    return file_get_contents($log_file_path);
+  }
+
+  public static function getFeedLogs() {
+    $log_file_path = Mage::getBaseDir('log').'/'.self::FEED_LOGFILE;
+    return file_get_contents($log_file_path);
+  }
+
+  public static function log($msg) {
+     Mage::log($msg, Zend_Log::INFO, self::LOGFILE);
+  }
+
+  public static function getDebugKey() {
+    $debug_key = Mage::getStoreConfig('facebook_ads_toolbox/debug/id');
+    if (!$debug_key) {
+      $debug_key = sha1(rand().",".rand().",".time());
+      Mage::getConfig()->saveConfig(
+        'facebook_ads_toolbox/debug/id',
+        $debug_key
+      );
+    }
+    return $debug_key;
   }
 
   public static $fbTimezones =  array(

@@ -1,7 +1,7 @@
 {
     "name": "OpenMageModuleFostering/Facebook_Ads_Toolbox",
     "type": "magento-module",
-    "license": "BSD-License",
+    "license": "Facebook-License",
     "homepage": "",
     "description": "Easily set up a pixel and catalog to use advanced advertising products and drive sales on Facebook.",
     "authors": [

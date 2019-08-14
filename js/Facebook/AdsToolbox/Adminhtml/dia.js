@@ -215,6 +215,14 @@ var DiaFlowContainer = React.createClass({
     }, window.facebookAdsToolboxConfig.popupOrigin);
   },
   openPopup: function openPopup() {
+    if (!this.state.diaSettingId && window.facebookAdsToolboxConfig.feed.totalVisibleProducts < 10000) {
+      new Ajax.Request(window.facebookAdsToolboxAjax.generateFeedNow, {
+        method: 'post',
+        parameters: {useCache : true},
+        onSuccess: function onSuccess() {}
+      });
+    }
+
     var width = 1153;
     var height = 808;
     var topPos = screen.height / 2 - height / 2;
@@ -443,6 +451,7 @@ var _ieOverlay2 = _interopRequireDefault(_ieOverlay);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/*
 (function () {
   Ajax._getTransport = Ajax.getTransport;
   Ajax._timeout = 30 * 60 * 1000; // 30min
@@ -451,7 +460,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
     t.timeout = Ajax._timeout;
     return t;
   };
-})(); /**
+})();
+*/ /**
        * Copyright (c) 2016-present, Facebook, Inc.
        * All rights reserved.
        *

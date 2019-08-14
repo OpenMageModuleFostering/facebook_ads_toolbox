@@ -14,6 +14,7 @@ window.facebookAdsToolboxConfig = {
    ,storeName: '<?php echo $this->fetchStoreName() ?>'
    ,version: '<?php echo FacebookAdsToolbox::getMagentoVersion() ?>'
    ,plugin_version: '<?php echo FacebookAdsToolbox::version() ?>'
+   ,debug_key: '<?php echo FacebookAdsToolbox::getDebugKey() ?>'
   }
  ,feed: {
     enabled: <?php echo $this->fetchFeedSetupEnabled() === 1 ? 'true' : 'false' ?>
@@ -26,7 +27,8 @@ window.facebookAdsToolboxConfig = {
   /* no dia setting id found */
 <?php } ?>
  ,feedPrepared: {
-    feedUrl: '<?php echo $this->getFeedUrl() ?>'
+    feedUrl: '<?php echo FacebookAdsToolbox::getFeedUrl() ?>'
+   ,feedPingUrl: '<?php echo FacebookAdsToolbox::getFeedPingUrl() ?>'
    ,samples: [
 <?php
   $samples = $this->fetchFeedSamples();

@@ -8,6 +8,8 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
+require_once __DIR__.'/../../lib/fb.php';
+
 class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxdiasettingidController
   extends Mage_Adminhtml_Controller_Action {
 
@@ -17,9 +19,12 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxdiasettingidController
   }
 
   public function ajaxAction() {
-    if (Mage::app()->getRequest()->isAjax()) {
+    try {
+      $msg = Mage::helper('core/url')->getCurrentUrl();
+      FacebookAdsToolbox::log("Set Settings Request : ".$msg);
+
       $dia_setting_id = $this->getRequest()->getParam('diaSettingId');
-      if ($dia_setting_id && $this->isIdValid($dia_setting_id)) {
+      if ($dia_setting_id) {
         Mage::getModel('core/config')->saveConfig(
           'facebook_ads_toolbox/dia/setting/id',
           $dia_setting_id
@@ -29,18 +34,22 @@ class Facebook_AdsToolbox_Adminhtml_FacebookadstoolboxdiasettingidController
           Mage::helper('core')->jsonEncode(array('success' => true))
         );
       } else {
-        Mage::throwException(
-          'Set DIA setting ID failed:'.($dia_setting_id ?: 'null')
-        );
+        $this->reportFailure($dia_setting_id, null);
       }
-    } else {
-      Mage::app()->getResponse()->setRedirect(
-        Mage::helper('adminhtml')->getUrl(
-          'adminhtml/facebookadstoolbox/dia/index'));
+    } catch (Exception $e) {
+      $this->reportFailure($dia_setting_id, $e);
     }
   }
 
-  public function isIdValid($id) {
-    return preg_match("/^\d{1,20}$/", $id) !== 0;
+  private function reportFailure($dia_setting_id, $e) {
+    if ($e) {
+      FacebookAdsToolbox::logException($e);
+    }
+    $msg = Mage::helper('core/url')->getCurrentUrl();
+    FacebookAdsToolbox::log("Set Settings Failure : ".$msg." ".$dia_setting_id);
+
+    Mage::throwException(
+      'Set DIA setting ID failed:'.($dia_setting_id ?: 'null')
+    );
   }
 }

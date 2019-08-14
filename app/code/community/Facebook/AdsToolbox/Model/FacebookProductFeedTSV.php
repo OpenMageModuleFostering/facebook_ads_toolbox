@@ -43,73 +43,9 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
     return null;
   }
 
-  protected function isValidCondition($condition) {
-    return ($condition &&
-              ( $condition === 'new' ||
-                $condition === 'used' ||
-                $condition === 'refurbished')
-           );
-  }
-
   protected function buildProductEntry($product) {
-    $items = array();
-    $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
-		$title = $product->getName();
-
-    $items[] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
-    $items[] = $this->buildProductAttr(self::ATTR_TITLE, $title);
-
-    // 'Description' is required by default but can be made
-    // optional through the magento admin panel.
-    $description = $product->getDescription();
-		$short_desc = $product->getShortDescription();
-    $items[] = $this->buildProductAttr(
-      self::ATTR_DESCRIPTION,
-      ($description) ? $description : (($short_desc) ? $short_desc : $title)
-    );
-    $items[] = $this->buildProductAttr(self::ATTR_LINK,
-      FacebookAdsToolbox::getBaseUrl().
-      $product->getUrlPath());
-    $items[] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
-      FacebookAdsToolbox::getBaseUrlMedia().
-      'catalog/product'.$product->getImage());
-    if ($product->getData('brand')) {
-      $items[] = $this->buildProductAttr(self::ATTR_BRAND,
-        $product->getAttributeText('brand'));
-    } else if ($product->getData('manufacturer')) {
-      $items[] = $this->buildProductAttr(self::ATTR_BRAND,
-        $product->getAttributeText('manufacturer'));
-    } else {
-      $items[] = $this->buildProductAttr(self::ATTR_BRAND, 'original');
-    }
-    if ($product->getData('condition')
-        && $this->isValidCondition($product->getAttributeText('condition'))) {
-      $items[] = $this->buildProductAttr(
-        self::ATTR_CONDITION,
-        $product->getAttributeText('condition')
-      );
-    } else {
-      $items[] = $this->buildProductAttr('condition', 'new');
-    }
-    $items[] = $this->buildProductAttr('availability',
-      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
-    $items[] = $this->buildProductAttr('price',
-      sprintf('%s %s',
-        Mage::getModel('directory/currency')->format(
-          $product->getFinalPrice(),
-          array('display'=>Zend_Currency::NO_SYMBOL),
-          false),
-        Mage::app()->getStore()->getDefaultCurrencyCode()));
-
-    $items[] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
-      $product->getShortDescription());
-
-    // TODO : Enable by adding 'google product category' in the header.
-    // if ($product->getData('google_product_category')) {
-    //  $items[] = $this->buildProductAttr(self::ATTR_GOOGLE_PRODUCT_CATEGORY,
-    //    $product->getData('google_product_category'));
-    // }
-    return implode("\t", $items);
+    $items = parent::buildProductEntry($product);
+    return implode("\t", array_values($items));
   }
 
 }

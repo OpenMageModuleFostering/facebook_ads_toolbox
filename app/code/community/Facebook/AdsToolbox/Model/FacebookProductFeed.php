@@ -10,6 +10,7 @@
 
 
 require_once 'app/Mage.php';
+require_once __DIR__.'/../lib/fb.php';
 
 class FacebookProductFeed {
 
@@ -30,10 +31,8 @@ class FacebookProductFeed {
   const PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_FORMAT =
     'facebook_adstoolbox/feed/generation/format';
 
-  const LOGFILE = 'facebook_adstoolbox_product_feed.log';
-
   public static function log($info) {
-    Mage::log($info, Zend_Log::INFO, self::LOGFILE);
+    Mage::log($info, Zend_Log::INFO, FacebookAdsToolbox::FEED_LOGFILE);
   }
 
   public static function getCurrentSetup() {
@@ -43,6 +42,14 @@ class FacebookProductFeed {
       'enabled' => Mage::getStoreConfig(
         self::PATH_FACEBOOK_ADSTOOLBOX_FEED_GENERATION_ENABLED) ?: false,
     );
+  }
+
+  protected function isValidCondition($condition) {
+    return ($condition &&
+              ( $condition === 'new' ||
+                $condition === 'used' ||
+                $condition === 'refurbished')
+           );
   }
 
   protected function buildProductAttrText(
@@ -61,25 +68,39 @@ class FacebookProductFeed {
       case self::ATTR_CONDITION:
       case self::ATTR_AVAILABILITY:
       case self::ATTR_PRICE:
+        if ((bool)$attr_value) {
+          $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          return trim($attr_value);
+        }
+        break;
       case self::ATTR_BRAND:
         if ((bool)$attr_value) {
-          return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          $attr_value = $escapefn ? $this->$escapefn($attr_value) : $attr_value;
+          $attr_value = trim($attr_value);
+          // brand max size: 70
+          if (strlen($attr_value) > 70) {
+            $attr_value = substr($attr_value, 0, 70);
+          }
+          return $attr_value;
         }
         break;
       case self::ATTR_TITLE:
         if ((bool)$attr_value) {
-          $attr_value = $this->htmlDecode($attr_value);
+          $attr_value = trim($this->htmlDecode($attr_value));
           // title max size: 100
-          $attr_value = strlen($attr_value) > 100 ?: substr($attr_value, 0, 100);
+          if (strlen($attr_value) > 100) {
+            $attr_value = substr($attr_value, 0, 100);
+          }
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
       case self::ATTR_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = $this->htmlDecode($attr_value);
+          $attr_value = trim($this->htmlDecode($attr_value));
           // description max size: 5000
-          $attr_value = strlen($attr_value) > 5000 ?:
-            substr($attr_value, 0, 5000);
+          if (strlen($attr_value) > 5000) {
+            $attr_value = substr($attr_value, 0, 5000);
+          }
           return $escapefn ? $this->$escapefn($attr_value) : $attr_value;
         }
         break;
@@ -94,7 +115,7 @@ class FacebookProductFeed {
         break;
       case self::ATTR_SHORT_DESCRIPTION:
         if ((bool)$attr_value) {
-          $attr_value = $this->htmlDecode($attr_value);
+          $attr_value = trim($this->htmlDecode($attr_value));
           // max size: 1000
           // and replacing the last 3 characters with '...' if it's too long
           $attr_value = strlen($attr_value) >= 1000 ?
@@ -119,8 +140,62 @@ class FacebookProductFeed {
     return '';
   }
 
+  protected function buildProductAttr($attribute, $value) {
+    return $this->buildProductAttrText($attribute, $value);
+  }
+
   protected function buildProductEntry($product) {
-    return '';
+    $items = array();
+    $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
+    $title = $product->getName();
+
+    $items[self::ATTR_ID] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
+    $items[self::ATTR_TITLE] = $this->buildProductAttr(self::ATTR_TITLE, $title);
+
+    // 'Description' is required by default but can be made
+    // optional through the magento admin panel.
+    $description = $product->getDescription();
+    $short_desc = $product->getShortDescription();
+    $items[self::ATTR_DESCRIPTION] = $this->buildProductAttr(
+      self::ATTR_DESCRIPTION,
+      ($description) ? $description : (($short_desc) ? $short_desc : $title)
+    );
+
+    $items[self::ATTR_LINK] = $this->buildProductAttr(self::ATTR_LINK,
+      FacebookAdsToolbox::getBaseUrl().
+      $product->getUrlPath());
+    $items[self::ATTR_IMAGE_LINK] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
+      FacebookAdsToolbox::getBaseUrlMedia().
+      'catalog/product'.$product->getImage());
+
+    $brand = null;
+    if ($product->getData('brand')) {
+      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('brand'));
+    }
+    if (!$brand && $product->getData('manufacturer')) {
+      $brand = $this->buildProductAttr(self::ATTR_BRAND, $product->getAttributeText('manufacturer'));
+    }
+    $items[self::ATTR_BRAND] = ($brand) ? $brand : 'original';
+
+    $condition = null;
+    if ($product->getData('condition')) {
+      $condition = $this->buildProductAttr(self::ATTR_CONDITION, $product->getAttributeText('condition'));
+    }
+    $items[self::ATTR_CONDITION] = ($this->isValidCondition($condition)) ? $condition : 'new';
+
+    $items[self::ATTR_AVAILABILITY] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
+      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
+    $items[self::ATTR_PRICE] = $this->buildProductAttr('price',
+      sprintf('%s %s',
+        Mage::getModel('directory/currency')->format(
+          $product->getFinalPrice(),
+          array('display'=>Zend_Currency::NO_SYMBOL),
+          false),
+        Mage::app()->getStore()->getDefaultCurrencyCode()));
+
+    $items[self::ATTR_SHORT_DESCRIPTION] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
+      $product->getShortDescription());
+    return $items;
   }
 
   protected function htmlDecode($attr_value) {

@@ -11,6 +11,7 @@
 require_once 'app/Mage.php';
 require_once __DIR__.'/../lib/fb.php';
 
+// DEPRECATED : Kept around for legacy reasons.
 class Facebook_AdsToolbox_ProductfeedController
   extends Mage_Core_Controller_Front_Action {
 
@@ -70,13 +71,13 @@ class Facebook_AdsToolbox_ProductfeedController
       try {
         $curl = new Varien_Http_Adapter_Curl();
         $curl->setConfig(array('timeout'   => 1));
-        $feed_url = FacebookAdsToolbox::getFeedUrl();
+        $feed_url = FacebookAdsToolbox::getFeedGenUrl();
         $curl->write(Zend_Http_Client::GET, $feed_url, '1.0');
         $curl->read();
         $curl->close();
       } catch (Exception $e) {
         // We expect the result to time out.
-        Mage::log($e->toString(), Zend_Log::INFO, 'facebook_exceptions.log');
+        FacebookAdsToolbox::logException($e);
       }
   }
 }

@@ -58,7 +58,7 @@ EOD;
     return htmlspecialchars($t, ENT_XML1);
   }
 
-  private function buildProductAttr($attr_name, $attr_value) {
+  protected function buildProductAttr($attr_name, $attr_value) {
     $text = $this->buildProductAttrText($attr_name, $attr_value, 'xmlescape');
     if ($text) {
       return sprintf('    <g:%s>%s</g:%s>', $attr_name, $text, $attr_name);
@@ -68,51 +68,9 @@ EOD;
   }
 
   protected function buildProductEntry($product) {
-    $items = array();
-    $items[] = "<entry>";
-    $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
-
-    $items[] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
-    $items[] = $this->buildProductAttr(self::ATTR_TITLE,
-      $product->getName());
-    $items[] = $this->buildProductAttr(self::ATTR_DESCRIPTION,
-      $product->getDescription());
-    $items[] = $this->buildProductAttr(self::ATTR_LINK,
-      FacebookAdsToolbox::getBaseUrl().
-      $product->getUrlPath());
-    $items[] = $this->buildProductAttr(self::ATTR_IMAGE_LINK,
-      FacebookAdsToolbox::getBaseUrlMedia().
-      'catalog/product'.$product->getImage());
-    if ($product->hasData('brand')) {
-      $items[] = $this->buildProductAttr(self::ATTR_BRAND,
-        $product->getData('brand'));
-    } else {
-      $items[] = $this->buildProductAttr(self::ATTR_BRAND, 'original');
-    }
-    if ($product->hasData('condition')) {
-      $items[] = $this->buildProductAttr(self::ATTR_CONDITION,
-        $product->getData('condition'));
-    } else {
-      $items[] = $this->buildProductAttr(self::ATTR_CONDITION, 'new');
-    }
-    $items[] = $this->buildProductAttr(self::ATTR_AVAILABILITY,
-      $stock->getData('is_in_stock') ? 'in stock' : 'out of stock');
-    $items[] = $this->buildProductAttr(self::ATTR_PRICE,
-      sprintf('%s %s',
-        Mage::getModel('directory/currency')->format(
-          $product->getFinalPrice(),
-          array('display'=>Zend_Currency::NO_SYMBOL),
-          false),
-        Mage::app()->getStore()->getDefaultCurrencyCode()));
-    if ($product->hasData('google_product_category')) {
-      $items[] = $this->buildProductAttr(self::ATTR_GOOGLE_PRODUCT_CATEGORY,
-        $product->getData('google_product_category'));
-    }
-    $items[] = $this->buildProductAttr(self::ATTR_SHORT_DESCRIPTION,
-      $product->getDescription());
-
+    $items = array_values(parent::buildProductEntry($product));
+    array_unshift($items, "<entry>");
     $items[] = "</entry>";
-    return implode("\n", array_filter($items));
+    return implode("\n", array_filter(array_values($items)));
   }
-
 }
