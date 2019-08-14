@@ -8,19 +8,14 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/common.php')) {
-  include_once 'common.php';
-} else {
-  include_once 'Facebook_AdsToolbox_Block_common.php';
-}
+require_once 'app/Mage.php';
+require_once 'common.php';
 
 class Facebook_AdsToolbox_Block_Search
   extends Facebook_AdsToolbox_Block_Common {
 
   public function getSearchQuery() {
-    return htmlspecialchars(
-      $this->getRequest()->getParam('q'),
-      ENT_QUOTES,
-      'UTF-8');
+    return $this->escapeQuotes(
+      $this->getRequest()->getParam('q'));
   }
 }

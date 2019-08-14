@@ -8,11 +8,8 @@
  * of patent rights can be found in the PATENTS file in the code directory.
  */
 
-if (file_exists(__DIR__.'/../lib/fb.php')) {
-  include_once __DIR__.'/../lib/fb.php';
-} else {
-  include_once __DIR__.'/../../../Facebook_AdsToolbox_lib_fb.php';
-}
+require_once 'app/Mage.php';
+require_once __DIR__.'/../lib/fb.php';
 
 class Facebook_AdsToolbox_DebugController
   extends Mage_Core_Controller_Front_Action {
@@ -25,9 +22,7 @@ class Facebook_AdsToolbox_DebugController
     if ($debug_key && $debug_key === FacebookAdsToolbox::getDebugKey()) {
       $this->getResponse()->setHeader('Content-type', 'text');
       $feed = $this->getRequest()->getParam('feed');
-      if ($feed && $feed == 'exception') {
-        $this->getResponse()->setBody(FacebookAdsToolbox::getFeedException());
-      } else if ($feed) {
+      if ($feed) {
         $this->getResponse()->setBody(FacebookAdsToolbox::getFeedLogs());
       } else {
         $this->getResponse()->setBody(FacebookAdsToolbox::getLogs());
