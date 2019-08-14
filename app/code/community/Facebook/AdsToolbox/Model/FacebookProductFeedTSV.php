@@ -54,24 +54,19 @@ class FacebookProductFeedTSV extends FacebookProductFeed {
   protected function buildProductEntry($product) {
     $items = array();
     $stock = Mage::getModel('cataloginventory/stock_item')->loadByProduct($product);
+		$title = $product->getName();
 
     $items[] = $this->buildProductAttr(self::ATTR_ID, $product->getId());
-    $items[] = $this->buildProductAttr(self::ATTR_TITLE,
-      $product->getName());
+    $items[] = $this->buildProductAttr(self::ATTR_TITLE, $title);
 
     // 'Description' is required by default but can be made
     // optional through the magento admin panel.
-    if ($product->getDescription()) {
-      $items[] = $this->buildProductAttr(
-        self::ATTR_DESCRIPTION,
-        $product->getDescription()
-      );
-    } else {
-      $items[] = $this->buildProductAttr(
-        self::ATTR_DESCRIPTION,
-        $product->getShortDescription()
-      );
-    }
+    $description = $product->getDescription();
+		$short_desc = $product->getShortDescription();
+    $items[] = $this->buildProductAttr(
+      self::ATTR_DESCRIPTION,
+      ($description) ? $description : (($short_desc) ? $short_desc : $title)
+    );
     $items[] = $this->buildProductAttr(self::ATTR_LINK,
       FacebookAdsToolbox::getBaseUrl().
       $product->getUrlPath());
