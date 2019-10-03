@@ -1,16 +1,19 @@
 {
-    "name": "OpenMageModuleFostering/Facebook_Ads_Toolbox",
+    "name": "OpenMageModuleFostering\/Facebook_Ads_Toolbox",
     "type": "magento-module",
     "license": "Facebook-License",
     "homepage": "",
     "description": "Easily set up a pixel and catalog to use advanced advertising products and drive sales on Facebook.",
     "authors": [
-    {
-        "name": "Jordan Rogers-Smith",
-        "email": "jordanrs@fb.com"
-    }
-],
+        {
+            "name": "Jordan Rogers-Smith",
+            "email": "jordanrs@fb.com"
+        }
+    ],
     "suggest": {
-        "magento-hackathon/magento-composer-installer": "*"
-    }
+        "magento-hackathon\/magento-composer-installer": "*"
+    },
+    "keywords": [
+        "openmage-module"
+    ]
 }
